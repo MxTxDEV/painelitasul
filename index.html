@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel Visual de Gestão — ITASUL OS</title>
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">ITASUL</span><span class="os">OS</span><span class="page-title">Painel Visual de Gestão</span></div>
+    <nav class="views" role="tablist" aria-label="Visões">
+      <button type="button" role="tab" data-view="mapa" class="vtab">Mapa do processo</button>
+      <button type="button" role="tab" data-view="equipe" class="vtab">Equipe e Responsabilidades</button>
+      <button type="button" role="tab" data-view="melhorias" class="vtab">Central de Melhorias</button>
+    </nav>
+    <details class="menu">
+      <summary>Dados</summary>
+      <div class="menu-body">
+        <button type="button" id="btn-export">Exportar backup (JSON)</button>
+        <label class="file-btn">Importar backup<input type="file" id="file-import" accept="application/json,.json" hidden></label>
+        <button type="button" id="btn-restore">Restaurar cópia de segurança</button>
+        <button type="button" id="btn-reset">Reiniciar com dados iniciais</button>
+        <small>Os dados ficam salvos só neste navegador. Exporte para fazer backup.</small>
+      </div>
+    </details>
+  </header>
+
+  <section id="kpis" class="kpis" aria-label="Indicadores gerais"></section>
+
+  <main>
+    <div id="view-mapa" class="view">
+      <div class="toolbar">
+        <div id="filters" class="filters" aria-label="Filtros"></div>
+        <div class="tools">
+          <button type="button" id="add-stage" class="btn small" data-testid="add-stage">+ Etapa</button>
+          <button type="button" id="layout-toggle" class="btn small"></button>
+          <span id="map-tools" class="zoom"><button type="button" id="zoom-out" class="btn small" aria-label="Diminuir zoom">−</button><button type="button" id="zoom-fit" class="btn small">Ajustar</button><button type="button" id="zoom-in" class="btn small" aria-label="Aumentar zoom">+</button></span>
+        </div>
+      </div>
+      <div id="paths" class="paths"></div>
+      <div class="legend"><span><i class="lg lg-noowner"></i> Sem responsável (A definir)</span><span><i class="lg lg-handoff"></i> Transferência entre setores</span><span><i class="lg lg-dash"></i> Ramal específico</span><span class="muted">Fluxo = hipótese inicial, editável. Arraste para mover, role para dar zoom.</span></div>
+      <div class="stage">
+        <div id="map" class="map" aria-label="Mapa do processo de locação"></div>
+        <div id="stage-list" class="stage-list" hidden></div>
+        <aside id="panel" class="panel" hidden aria-label="Detalhes da etapa"></aside>
+      </div>
+    </div>
+    <div id="view-equipe" class="view" hidden></div>
+    <div id="view-melhorias" class="view" hidden></div>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
