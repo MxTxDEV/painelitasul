@@ -34,7 +34,7 @@ try {
     assert.equal(await page.locator('.panel .tab').count(), 9);
     assert.match(await page.locator('.panel h2').innerText(), /Comercial e orçamento/);
     await page.click('.tab[data-tab="fluxo"]');
-    assert.match(await page.locator('.tab-body').innerText(), /transferência entre setores/);
+    assert.match(await page.locator('.tab-body').innerText(), /transferência de responsabilidade/);
   });
   await t('cadastrar funcionário e vincular a duas etapas', async () => {
     await page.click('[data-view="equipe"]');
@@ -119,23 +119,97 @@ try {
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('[data-testid="imp-card"]').count(), 1, 'sugestão da IA não vira cadastro sozinha');
   });
-  await t('indicador manual: editar e voltar a "sem dados"', async () => {
+  await t('indicador sem registros: abre lista vazia, permite valor manual', async () => {
+    await page.click('[data-view="mapa"]');
     await page.click('[data-kpi="rentalsActive"]');
+    assert.match(await page.locator('dialog').innerText(), /Sem dados registrados/);
+    await page.click('[data-testid="ind-manual"]');
     await page.fill('dialog input', '3');
     await page.click('dialog button[type=submit]');
     assert.match(await page.locator('[data-kpi="rentalsActive"]').innerText(), /^3\b/);
   });
+  await t('registros alimentam indicadores e cada indicador lista seus itens', async () => {
+    await page.click('[data-view="registros"]');
+    for (const [kind, title, status] of [['Locação', 'Locação obra A', 'Em andamento'], ['Orçamento', 'Orç. 1', 'Aberto'], ['Orçamento', 'Orç. 2', 'Aguardando retorno'], ['Entrega', 'Entrega X', 'Programado'], ['Pendência financeira', 'Pend. 1', 'Aberto'], ['Equipamento indisponível', 'Equip. Y', 'Em andamento']]) {
+      await page.click('[data-testid="add-record"]');
+      await page.selectOption('dialog select >> nth=0', kind);
+      await page.fill('dialog input[type=text]', title);
+      await page.selectOption('dialog select >> nth=1', status);
+      await page.click('dialog button[type=submit]');
+    }
+    assert.equal(await page.locator('[data-testid="record-row"]').count(), 6);
+    for (const [k, n] of [['rentalsActive', 1], ['quotesOpen', 1], ['quotesAwaiting', 1], ['deliveriesPlanned', 1], ['financePending', 1], ['equipmentDown', 1]]) {
+      assert.match(await page.locator(`[data-kpi="${k}"]`).innerText(), new RegExp(`^${n}\\b`), k);
+    }
+    await page.click('[data-kpi="quotesAwaiting"]');
+    assert.match(await page.locator('[data-testid="ind-items"]').innerText(), /Orç\. 2/);
+    assert.doesNotMatch(await page.locator('[data-testid="ind-items"]').innerText(), /Orç\. 1/);
+    await page.keyboard.press('Escape');
+    // concluir o registro tira do indicador
+    await page.click('[data-testid="record-row"]:has-text("Orç. 2") button:has-text("Editar")');
+    await page.selectOption('dialog select >> nth=1', 'Concluído');
+    await page.click('dialog button[type=submit]');
+    assert.match(await page.locator('[data-kpi="quotesAwaiting"]').innerText(), /^0\b/);
+  });
+  await t('painel amplo: visão completa traz todas as seções', async () => {
+    await page.click('[data-view="mapa"]');
+    await page.click('[data-testid="node-s4"]');
+    const txt = await page.locator('.tab-body').innerText();
+    for (const h of ['Objetivo', 'Responsável', 'Pendências', 'Tarefas', 'Entradas e entregas', 'Indicadores', 'Sugestões de melhoria']) assert.match(txt, new RegExp(h), h);
+    assert.ok((await page.locator('#panel').boundingBox()).width >= 520, 'painel largo');
+  });
+  await t('reabrir tarefa concluída atualiza indicadores', async () => {
+    assert.match(await page.locator('[data-testid="task-row"]').innerText(), /Concluída/);
+    await page.click('[data-testid="task-row"] [data-act="reopen"]');
+    assert.match(await page.locator('[data-testid="task-row"]').innerText(), /Pendente/);
+    assert.match(await page.locator('[data-kpi="extra-open"]').innerText(), /^1\b/);
+    assert.match(await page.locator('[data-kpi="tasksOverdue"]').innerText(), /^1\b/, 'prazo antigo volta a contar como atrasada');
+    assert.match(await page.locator('[data-testid="pending-list"]').innerText(), /Atrasada: Enviar orçamentos pendentes/);
+    await page.click('[data-testid="task-row"] [data-act="complete"]');
+    assert.match(await page.locator('[data-kpi="tasksOverdue"]').innerText(), /^0\b/);
+    await page.click('[data-testid="task-row"] [data-act="reopen"]');
+  });
+  await t('vincular funcionário pelo painel sem torná-lo responsável', async () => {
+    await page.evaluate(() => window.__itasul.store.addEmployee({ name: 'Segunda Pessoa' }));
+    await page.click('[data-testid="node-s5"]');
+    await page.click('.tab[data-tab="pessoas"]');
+    await page.selectOption('[data-testid="link-emp-select"]', { label: 'Segunda Pessoa' });
+    await page.click('[data-testid="link-emp-btn"]');
+    assert.match(await page.locator('.tab-body').innerText(), /Segunda Pessoa/);
+    await page.click('.tab[data-tab="resumo"]');
+    assert.match(await page.locator('[data-testid="owner-line"]').innerText(), /Principal: A definir/);
+    assert.equal(await page.locator('[data-testid="node-s5"].no-owner').count(), 1);
+    assert.equal(await page.evaluate(() => window.__itasul.store.get().employees.filter((e) => e.name === 'Segunda Pessoa').length), 1);
+  });
+  await t('navegação entre etapas pelos links de entrada/saída', async () => {
+    await page.click('[data-testid="node-s4"]');
+    await page.click('.tab-body [data-nav="s5"]');
+    assert.match(await page.locator('.panel h2').innerText(), /Disponibilidade e preparação/);
+    await page.click('.tab-body [data-nav="s4"]');
+    assert.match(await page.locator('.panel h2').innerText(), /Comercial e orçamento/);
+  });
+  await t('sugestão criada a partir da etapa aparece no painel', async () => {
+    await page.click('[data-testid="add-stage-idea"]');
+    await page.fill('dialog input[type=text] >> nth=0', 'Ideia da etapa 4');
+    await page.click('dialog button[type=submit]');
+    assert.match(await page.locator('[data-testid="stage-ideas"]').innerText(), /Ideia da etapa 4/);
+  });
   await t('dados persistem após recarregar', async () => {
     await page.reload();
-    assert.match(await page.locator('[data-kpi="rentalsActive"]').innerText(), /^3\b/);
+    assert.match(await page.locator('[data-kpi="rentalsActive"]').innerText(), /^1\b/);
+    assert.match(await page.locator('[data-kpi="extra-open"]').innerText(), /^1\b/);
+    await page.click('[data-testid="node-s4"]');
+    assert.match(await page.locator('.tab-body').innerText(), /Enviar orçamentos pendentes[\s\S]*Ideia da etapa 4/);
+    await page.click('[data-view="registros"]');
+    assert.equal(await page.locator('[data-testid="record-row"]').count(), 6);
     await page.click('[data-view="equipe"]');
-    assert.equal(await page.locator('[data-testid="emp-card"]').count(), 1);
+    assert.equal(await page.locator('[data-testid="emp-card"]').count(), 2);
     assert.equal(await page.locator('[data-testid="coverage-row"] td.undef').count() > 0, true);
   });
   await t('exportar gera JSON válido', async () => {
     const json = await page.evaluate(() => window.__itasul.store.exportJSON());
     const d = JSON.parse(json);
-    assert.equal(d.employees.length, 1); assert.equal(d.tasks.length, 1);
+    assert.equal(d.employees.length, 2); assert.equal(d.tasks.length, 1);
   });
   await t('nome com HTML é exibido como texto (sem XSS)', async () => {
     await page.evaluate(() => window.__itasul.store.addEmployee({ name: '<img src=x onerror=window.__xss=1>' }));

@@ -14,13 +14,17 @@ Também funciona hospedado em qualquer servidor estático (GitHub Pages, Vercel 
 
 ## Telas
 - **Mapa do processo** — 11 etapas + 2 ramais (Análise Munck, Destinação de caçambas). Arraste para mover, roda do mouse/botões para zoom, "Ajustar" para enquadrar. Seletor de **caminho** (Caçambas, Equipamentos, Caminhão Munck, Manutenção) destaca só as etapas do caminho, numeradas, sem perder a visão geral. Em telas pequenas abre em **lista**.
-- **Painel lateral** (clique numa etapa) — abas: Resumo, Responsabilidades, Tarefas, Responsáveis (principal e substituto), Entradas e entregas (com aviso de transferência entre setores), Indicadores, Problemas, Melhorias vinculadas, Histórico.
+- **Painel lateral amplo** (clique numa etapa) — a aba **Visão completa** reúne objetivo, responsável (principal/substituto), pendências, tarefas (adicionar, editar, concluir, reabrir), entradas e entregas (com links para as etapas vizinhas e aviso ⇄ de transferência entre setores), indicadores, sugestões de melhoria e atividades previstas. As demais abas (Responsabilidades, Tarefas, Responsáveis, Entradas e entregas, Indicadores, Problemas, Melhorias, Histórico) detalham/editam cada parte. Na aba **Responsáveis** dá para vincular/desvincular pessoas e cadastrar um funcionário novo já ligado à etapa. Vincular **não** define responsável: isso é sempre uma escolha explícita.
+- **Registros** — orçamentos, locações, entregas, pendências financeiras, equipamentos indisponíveis e manutenções, com status, data, etapa e responsável. **Sem valores financeiros nem dados pessoais.** São a base dos indicadores.
 - **Equipe e Responsabilidades** — cadastro único de funcionários vinculados a várias etapas, hierarquia por "quem coordena" e tabela de cobertura (quem responde por cada etapa; "A definir" em destaque).
 - **Central de Melhorias** — sugestões com todos os campos pedidos, vínculo a etapa/tarefa/funcionário, filtro por status. Ideias da IA ficam numa seção separada, marcadas como não aprovadas; só viram sugestão (status "Nova") se você clicar em adotar.
-- **Indicadores no topo** — "Sem dados registrados" até haver dados. Tarefas atrasadas, manutenções pendentes e sugestões em avaliação são **calculadas** das tarefas/sugestões cadastradas; os demais (orçamentos, locações, entregas, pendências financeiras, equipamentos indisponíveis) são **informados manualmente** ao clicar. Clicar nos calculados abre os itens.
+- **Indicadores no topo** — todos calculados dos registros existentes e **clicáveis** (abrem a lista dos itens, com atalho para editar/registrar). "Sem dados registrados" quando não há nenhum registro do tipo; `0` só quando existem registros mas nenhum ativo.
+  - Orçamentos abertos = Orçamento `Aberto` · aguardando retorno = Orçamento `Aguardando retorno` · Locações em andamento = Locação `Em andamento` · Entregas previstas = Entrega `Aberto`/`Programado` · Pendências financeiras / Equipamentos indisponíveis = registros do tipo não concluídos/cancelados · Manutenções pendentes = tarefas abertas da etapa 11 + registros "Manutenção" ativos · Tarefas atrasadas, pendentes e bloqueadas = das tarefas · Sugestões em avaliação = das melhorias.
+  - Compatibilidade: um valor informado manualmente (versão anterior) continua valendo só enquanto não houver registros do tipo, e aparece marcado como manual.
 - **Filtros** por setor, responsável, status e prioridade (etapas que não casam ficam esmaecidas).
 
 ## Dados e segurança
+- Dados de versões anteriores são **migrados automaticamente** (v1 → v2): nada é apagado; apenas é adicionada a lista de registros e as etapas padrão voltam à nova posição (etapas criadas por você ficam abaixo do mapa).
 - Persistência em `localStorage` (chave `itasul-painel-v1`), só neste navegador. **Exportar backup** gera um JSON.
 - **Importar** valida o arquivo, pede confirmação e guarda antes uma cópia de segurança (**Restaurar cópia de segurança** desfaz). **Reiniciar** também guarda cópia. Arquivo inválido nunca altera os dados.
 - Todo texto cadastrado é exibido como texto (sem `innerHTML`), evitando injeção de HTML.
@@ -35,16 +39,16 @@ src/
   data/seed.js       etapas, ligações, caminhos, ideias da IA (hipóteses editáveis)
   state/store.js     estado, persistência, CRUD, histórico, import/export
   state/logic.js     funções puras: atrasos, filtros, indicadores, transferências
-  ui/                dom.js (helpers) · form.js (modal) · map.js · panel.js · team.js · improvements.js
-tests/unit/          testes do estado e da lógica (node:test)
+  ui/                dom.js (helpers) · form.js (modal) · map.js · panel.js · team.js · improvements.js · records.js
+tests/unit/          estado, lógica, migração e geometria do layout (node:test)
 tests/e2e/smoke.mjs  teste de interface em navegador real
 tools/serve.mjs      servidor estático para desenvolvimento
 ```
 Modelo: **etapas** (processos) ≠ **funcionários** (pessoas) ≠ **tarefas**. Uma pessoa liga-se a várias etapas por `stageIds`/responsável/substituto sem duplicar cadastro; uma etapa pode ter várias pessoas e tarefas.
 
-## Status da primeira versão
-**Funcional:** fluxo e ramais no mapa; painel por etapa; CRUD de tarefas (status, prioridade, prazo, atraso); CRUD de etapas (incl. ligações) e funcionários; vínculo pessoa↔etapa; sinalização de etapas sem responsável, tarefas atrasadas e bloqueadas; transferências entre setores; melhorias; filtros; backup/importação; layout responsivo.
+## Status
+**Funcional:** tudo da primeira versão, mais painel amplo consolidado, reabrir tarefas, vínculo de pessoas pelo painel, registros operacionais, indicadores calculados e clicáveis, layout em serpentina sem cruzamento de setas, navegação entre etapas vizinhas.
 
-**Depende de cadastro seu:** funcionários, responsáveis, responsabilidades, tarefas, problemas recorrentes, valores dos indicadores manuais, sugestões. O fluxo, as atividades e as entradas/saídas das etapas são hipóteses do briefing — revise.
+**Depende de cadastro seu:** funcionários, responsáveis (todas as etapas começam "A definir"), responsabilidades, tarefas, registros, problemas recorrentes, sugestões. Fluxo, atividades e entradas/saídas das etapas são hipóteses do briefing — revise.
 
-**Pendente / fora do escopo desta versão:** compartilhamento entre usuários/dispositivos (dados ficam no navegador; hoje só via exportar/importar JSON); integração com TotalLoc/WhatsApp (não autorizada); arrastar nós para reposicionar; histórico por tarefa/funcionário (hoje há histórico por etapa e global); pinça de dois dedos no mapa (use os botões de zoom); autenticação/permissões.
+**Pendente / fora do escopo:** compartilhamento entre usuários/dispositivos (dados ficam no navegador; use exportar/importar), integração com TotalLoc/WhatsApp (não autorizada), arrastar etapas para reposicionar, histórico por tarefa/funcionário, zoom por pinça, login e permissões.

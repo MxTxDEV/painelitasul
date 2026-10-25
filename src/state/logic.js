@@ -72,22 +72,41 @@ export function stageMatches(state, stage, f) {
   return true;
 }
 
-// Cada indicador devolve { value: number|null, items?, kind } — null = "Sem dados registrados".
+export const RECORD_DONE = ['Concluído', 'Cancelado'];
+export const recordActive = (r) => !RECORD_DONE.includes(r.status);
+
+// Definição de cada indicador de registros: tipo + quais status contam.
+const RECORD_RULES = {
+  quotesOpen: { kind: 'Orçamento', match: (r) => r.status === 'Aberto' },
+  quotesAwaiting: { kind: 'Orçamento', match: (r) => r.status === 'Aguardando retorno' },
+  rentalsActive: { kind: 'Locação', match: (r) => r.status === 'Em andamento' },
+  deliveriesPlanned: { kind: 'Entrega', match: (r) => r.status === 'Aberto' || r.status === 'Programado' },
+  financePending: { kind: 'Pendência financeira', match: recordActive },
+  equipmentDown: { kind: 'Equipamento indisponível', match: recordActive },
+};
+
+// Cada indicador devolve { value: number|null, tasks/records/stages/improvements } — null = "Sem dados registrados".
+// Registros cadastrados têm prioridade; sem nenhum registro do tipo, vale o número informado manualmente (marcado "manual").
 export function computeIndicators(state, today = todayISO()) {
   const open = state.tasks.filter((t) => t.status !== 'Concluída');
-  const maint = state.tasks.filter((t) => t.stageId === 's11');
   const overdue = state.tasks.filter((t) => isOverdue(t, today));
   const res = {};
   for (const def of METRIC_DEFS) {
-    const base = { key: def.key, label: def.label, manual: def.manual };
-    if (def.manual) {
-      const v = state.metrics[def.key];
-      res[def.key] = { ...base, value: Number.isFinite(v) ? v : null };
+    const base = { key: def.key, label: def.label };
+    const rule = RECORD_RULES[def.key];
+    if (rule) {
+      const ofKind = state.records.filter((r) => r.kind === rule.kind);
+      const list = ofKind.filter(rule.match);
+      const manual = state.metrics[def.key];
+      if (ofKind.length) res[def.key] = { ...base, value: list.length, records: list, kind: rule.kind };
+      else res[def.key] = { ...base, value: Number.isFinite(manual) ? manual : null, records: [], kind: rule.kind, manual: Number.isFinite(manual) };
     } else if (def.key === 'tasksOverdue') {
       res[def.key] = { ...base, value: state.tasks.length ? overdue.length : null, tasks: overdue };
     } else if (def.key === 'maintenancePending') {
-      const pending = maint.filter((t) => t.status !== 'Concluída');
-      res[def.key] = { ...base, value: maint.length ? pending.length : null, tasks: pending };
+      const tasks = state.tasks.filter((t) => t.stageId === 's11' && t.status !== 'Concluída');
+      const records = state.records.filter((r) => r.kind === 'Manutenção' && recordActive(r));
+      const any = state.tasks.some((t) => t.stageId === 's11') || state.records.some((r) => r.kind === 'Manutenção');
+      res[def.key] = { ...base, value: any ? tasks.length + records.length : null, tasks, records, kind: 'Manutenção' };
     } else {
       const list = state.improvements.filter((i) => i.status === 'Em avaliação');
       res[def.key] = { ...base, value: state.improvements.length ? list.length : null, improvements: list };

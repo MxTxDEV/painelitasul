@@ -1,5 +1,5 @@
 // Estado + persistência. O storage é injetável (localStorage no navegador, objeto falso nos testes).
-import { createInitialState } from '../data/seed.js';
+import { createInitialState, SEED_STAGES, STATE_VERSION, ROW } from '../data/seed.js';
 
 export const STORAGE_KEY = 'itasul-painel-v1';
 export const BACKUP_KEY = 'itasul-painel-v1-backup';
@@ -8,12 +8,28 @@ const LISTS = ['stages', 'edges', 'paths', 'tasks', 'employees', 'improvements',
 
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
+// Valida e migra (v1 → v2) sem perder nada do usuário: só acrescenta "records" e reposiciona etapas do layout padrão.
 export function validateState(data) {
   if (!data || typeof data !== 'object') throw new Error('Arquivo inválido: não é um objeto JSON.');
   if (typeof data.version !== 'number') throw new Error('Arquivo inválido: sem "version".');
-  if (data.version > 1) throw new Error('Arquivo gerado por uma versão mais nova do painel.');
+  if (data.version > STATE_VERSION) throw new Error('Arquivo gerado por uma versão mais nova do painel.');
   for (const k of LISTS) if (!Array.isArray(data[k])) throw new Error(`Arquivo inválido: "${k}" ausente.`);
   if (!data.metrics || typeof data.metrics !== 'object') throw new Error('Arquivo inválido: "metrics" ausente.');
+  if (data.records !== undefined && !Array.isArray(data.records)) throw new Error('Arquivo inválido: "records" deve ser uma lista.');
+  return migrate(data);
+}
+
+function migrate(data) {
+  data.records ||= [];
+  if (data.version < 2) {
+    const seed = new Map(SEED_STAGES.map((s) => [s.id, s]));
+    let maxY = Math.max(...SEED_STAGES.map((s) => s.y));
+    for (const st of data.stages) {
+      const base = seed.get(st.id);
+      if (base) { st.x = base.x; st.y = base.y; } else { maxY += ROW; st.x = 40; st.y = maxY; }
+    }
+    data.version = 2;
+  }
   return data;
 }
 
@@ -52,6 +68,14 @@ export function createStore({ storage = null, now = () => new Date() } = {}) {
       Object.assign(t, patch);
       commit(statusChanged ? `Tarefa "${t.title}" → ${t.status}` : `Tarefa editada: ${t.title}`, t.stageId);
     },
+    completeTask(id) {
+      const t = find('tasks', id); if (!t || t.status === 'Concluída') return;
+      t.status = 'Concluída'; t.completedAt = now().toISOString(); commit(`Tarefa concluída: ${t.title}`, t.stageId);
+    },
+    reopenTask(id) {
+      const t = find('tasks', id); if (!t || t.status !== 'Concluída') return;
+      t.status = 'Pendente'; t.completedAt = ''; commit(`Tarefa reaberta: ${t.title}`, t.stageId);
+    },
     deleteTask(id) {
       const t = find('tasks', id); if (!t) return;
       state.tasks = state.tasks.filter((x) => x.id !== id); commit(`Tarefa removida: ${t.title}`, t.stageId);
@@ -81,6 +105,7 @@ export function createStore({ storage = null, now = () => new Date() } = {}) {
       state.edges = state.edges.filter((e) => e.from !== id && e.to !== id);
       state.paths.forEach((p) => p.steps.forEach((st) => { if (st.stageId === id) st.stageId = null; }));
       state.employees.forEach((e) => { e.stageIds = (e.stageIds || []).filter((x) => x !== id); });
+      state.records.forEach((r) => { if (r.stageId === id) r.stageId = null; });
       state.improvements.forEach((i) => { if (i.link?.id === id) i.link = null; });
       commit(`Etapa removida: ${s.name}`);
     },
@@ -98,17 +123,40 @@ export function createStore({ storage = null, now = () => new Date() } = {}) {
       if (e.coordinatorId === e.id) e.coordinatorId = null;
       commit(`Funcionário editado: ${e.name}`);
     },
+    // Vincular = "participa da etapa". NÃO define responsável principal (isso é sempre escolha explícita).
+    linkEmployee(employeeId, stageId, linked = true) {
+      const e = find('employees', employeeId), st = find('stages', stageId); if (!e || !st) return;
+      const set = new Set(e.stageIds || []); linked ? set.add(stageId) : set.delete(stageId);
+      e.stageIds = [...set]; commit(`${e.name} ${linked ? 'vinculado(a) à' : 'desvinculado(a) da'} etapa ${st.name}`, stageId);
+    },
     deleteEmployee(id) {
       const e = find('employees', id); if (!e) return;
       state.employees = state.employees.filter((x) => x.id !== id);
       state.employees.forEach((x) => { if (x.coordinatorId === id) x.coordinatorId = null; if (x.substituteId === id) x.substituteId = null; });
       state.stages.forEach((s) => { if (s.ownerId === id) s.ownerId = null; if (s.substituteId === id) s.substituteId = null; });
       state.tasks.forEach((t) => { if (t.ownerId === id) t.ownerId = null; });
+      state.records.forEach((r) => { if (r.ownerId === id) r.ownerId = null; });
       state.improvements.forEach((i) => {
         if (i.reviewerId === id) i.reviewerId = null;
         if (i.link?.id === id) i.link = null;
       });
       commit(`Funcionário removido: ${e.name} (responsabilidades voltaram para "A definir")`);
+    },
+
+    // Registros operacionais (orçamento, locação, entrega...) — base dos indicadores. Sem valores financeiros.
+    addRecord(d) {
+      const r = { id: uid('r'), kind: 'Orçamento', title: '', status: 'Aberto', date: '', stageId: null, ownerId: null, notes: '', ...d };
+      if (!r.title.trim()) throw new Error('O registro precisa de uma identificação.');
+      state.records.push(r); commit(`Registro criado: ${r.kind} — ${r.title}`, r.stageId); return r;
+    },
+    updateRecord(id, patch) {
+      const r = find('records', id); if (!r) return;
+      if ('title' in patch && !patch.title.trim()) throw new Error('O registro precisa de uma identificação.');
+      Object.assign(r, patch); commit(`Registro editado: ${r.kind} — ${r.title}`, r.stageId);
+    },
+    deleteRecord(id) {
+      const r = find('records', id); if (!r) return;
+      state.records = state.records.filter((x) => x.id !== id); commit(`Registro removido: ${r.kind} — ${r.title}`, r.stageId);
     },
 
     // Melhorias

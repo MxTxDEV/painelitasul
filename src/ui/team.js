@@ -4,11 +4,11 @@ import { openForm, options } from './form.js';
 import { SECTORS } from '../data/seed.js';
 import { byId, personName, stagesOf } from '../state/logic.js';
 
-export function employeeForm(store, emp) {
+export function employeeForm(store, emp, preset = {}) {
   const s = store.get();
   const others = s.employees.filter((e) => e.id !== emp?.id).map((e) => ({ value: e.id, label: e.name }));
   openForm({
-    title: emp ? 'Editar funcionário' : 'Novo funcionário', values: emp || {},
+    title: emp ? 'Editar funcionário' : 'Novo funcionário', values: emp || preset,
     fields: [
       { name: 'name', label: 'Funcionário', required: true },
       { name: 'role', label: 'Cargo ou função' },

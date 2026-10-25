@@ -2,7 +2,7 @@
 import { el, clear } from './dom.js';
 import { byId, personName, stageIssues, stageMatches, isHandoff } from '../state/logic.js';
 
-const NODE_W = 230, NODE_H = 120;
+const NODE_W = 260, NODE_H = 140;
 const view = { x: 20, y: 10, k: 0.8 };
 let fitted = false;
 
@@ -43,7 +43,7 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
   const svg = svgEl('svg', { class: 'edges', width: maxX, height: maxY, 'aria-hidden': 'true' });
   const defs = svgEl('defs');
   for (const [id, cls] of [['arrow', 'a-norm'], ['arrow-hl', 'a-hl']]) {
-    const m = svgEl('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+    const m = svgEl('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: 'auto-start-reverse' });
     m.append(svgEl('path', { d: 'M0,0 L10,5 L0,10 z', class: cls })); defs.append(m);
   }
   svg.append(defs);
@@ -58,7 +58,7 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     svg.append(p);
     if (handoff) {
       const mx = (g.s[0] + g.t[0]) / 2, my = (g.s[1] + g.t[1]) / 2;
-      const c = svgEl('circle', { cx: mx, cy: my, r: 5, class: `handoff${dim ? ' dim' : ''}` });
+      const c = svgEl('circle', { cx: mx, cy: my, r: 6, class: `handoff${dim ? ' dim' : ''}` });
       const t = svgEl('title'); t.textContent = `Transferência de responsabilidade: ${a.sector} → ${b.sector}`;
       c.append(t); svg.append(c);
     }
@@ -83,6 +83,7 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
       el('span', { class: 'node-name', text: s.name }),
       el('span', { class: 'node-foot' },
         el('span', { class: `owner${iss.noOwner ? ' undefined' : ''}`, text: iss.noOwner ? '⚠ Responsável: A definir' : personName(state, s.ownerId) }),
+        iss.open > 0 && el('span', { class: 'alert open', title: 'Tarefas abertas', text: `${iss.open} aberta${iss.open > 1 ? 's' : ''}` }),
         iss.overdue > 0 && el('span', { class: 'alert late', title: 'Tarefas atrasadas', text: `${iss.overdue} atrasada${iss.overdue > 1 ? 's' : ''}` }),
         iss.blocked > 0 && el('span', { class: 'alert block', title: 'Tarefas bloqueadas', text: `${iss.blocked} bloq.` })));
     canvas.append(node);

@@ -7,13 +7,14 @@ import { renderMap, mapControls } from './ui/map.js';
 import { renderPanel, taskForm, stageForm } from './ui/panel.js';
 import { renderTeam } from './ui/team.js';
 import { renderImprovements } from './ui/improvements.js';
+import { renderRecords, recordForm, recordLine } from './ui/records.js';
 
 let storage = null;
 try { storage = window.localStorage; storage.getItem('x'); } catch { storage = null; }
 const store = createStore({ storage });
 if (!storage) setTimeout(() => toast('Armazenamento do navegador indisponível: alterações não serão salvas. Use Exportar.', true), 300);
 
-const ui = { view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', layout: window.matchMedia('(max-width: 760px)').matches ? 'lista' : 'mapa' };
+const ui = { view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', layout: window.matchMedia('(max-width: 760px)').matches ? 'lista' : 'mapa' };
 const $ = (id) => document.getElementById(id);
 
 function renderIndicators() {
@@ -22,7 +23,7 @@ function renderIndicators() {
     el('span', { class: 'kpi-val', text: i.value === null ? 'Sem dados registrados' : String(i.value) }), el('span', { class: 'kpi-lbl', text: i.label }));
   const main = METRIC_DEFS.map((d) => {
     const i = ind[d.key];
-    return tile(i, () => (d.manual ? editMetric(d, i) : showItems(i)), i.value > 0 && d.key === 'tasksOverdue' ? ' hot' : '');
+    return tile(i, () => showItems(i), i.value > 0 && d.key === 'tasksOverdue' ? ' hot' : '');
   });
   const ex = ind.extra;
   const extra = [['open', 'extra-open'], ['blocked', 'extra-blocked'], ['noOwner', 'extra-noowner'], ['problems', 'extra-problems']].map(([k, key]) =>
@@ -30,10 +31,10 @@ function renderIndicators() {
   $('kpis').replaceChildren(...main, ...extra);
 }
 
-function editMetric(def, i) {
+function editMetric(def) {
   openForm({
-    title: def.label, values: { value: i.value ?? '' },
-    fields: [{ name: 'value', label: 'Valor atual (informado manualmente)', type: 'number', hint: 'Deixe vazio para voltar a "Sem dados registrados". Nenhuma integração externa está conectada.' }],
+    title: `${def.label} — valor manual`, values: { value: store.get().metrics[def.key] ?? '' },
+    fields: [{ name: 'value', label: 'Valor informado manualmente', type: 'number', hint: 'Só vale enquanto não houver registros desse tipo. Deixe vazio para voltar a "Sem dados registrados".' }],
     onSubmit: (v) => store.setMetric(def.key, v.value),
   });
 }
@@ -44,10 +45,17 @@ function showItems(i) {
   (i.tasks || []).forEach((t) => items.push(el('li', {}, el('button', { class: 'chip link', type: 'button', text: t.title, onClick: () => { d.close(); open(t.stageId, 'tarefas'); } }),
     ` — ${byId(s.stages, t.stageId)?.name || ''} · ${t.status} · ${personName(s, t.ownerId)}${t.due ? ` · prazo ${fmtDate(t.due)}` : ''}${isOverdue(t) ? ' · ATRASADA' : ''}`)));
   (i.stages || []).forEach((st) => items.push(el('li', {}, el('button', { class: 'chip link', type: 'button', text: `${st.num ?? 'R'}. ${st.name}`, onClick: () => { d.close(); open(st.id, 'resumo'); } }), ` — ${st.sector}`)));
+  (i.records || []).forEach((r) => items.push(el('li', {}, el('strong', { text: `${r.title} ` }), el('span', { class: 'muted', text: recordLine(s, r) }), ' ',
+    el('button', { class: 'btn small', type: 'button', text: 'Editar', onClick: () => { d.close(); recordForm(store, r); } }))));
   (i.improvements || []).forEach((m) => items.push(el('li', { text: m.title })));
+  const def = METRIC_DEFS.find((x) => x.key === i.key);
   const d = el('dialog', { class: 'modal' }, el('h2', { text: i.label }),
-    items.length ? el('ul', { class: 'list' }, items) : el('p', { class: 'muted', text: i.value === null ? 'Sem dados registrados.' : 'Nenhum item.' }),
-    el('div', { class: 'actions' }, el('button', { class: 'btn', type: 'button', text: 'Fechar', onClick: () => d.close() })));
+    items.length ? el('ul', { class: 'list', 'data-testid': 'ind-items' }, items) : el('p', { class: 'muted', text: i.value === null ? 'Sem dados registrados.' : 'Nenhum item.' }),
+    i.manual && el('p', { class: 'muted', text: `Valor informado manualmente (${i.value}); não há registros de ${i.kind}.` }),
+    el('div', { class: 'actions' },
+      i.kind && el('button', { class: 'btn', type: 'button', 'data-testid': 'ind-new-record', text: `+ Registrar ${i.kind.toLowerCase()}`, onClick: () => { d.close(); recordForm(store, null, { kind: i.kind }); } }),
+      def?.manual && !(i.records || []).length && el('button', { class: 'btn', type: 'button', 'data-testid': 'ind-manual', text: 'Informar valor manual', onClick: () => { d.close(); editMetric(def); } }),
+      el('button', { class: 'btn', type: 'button', text: 'Fechar', onClick: () => d.close() })));
   d.addEventListener('close', () => d.remove()); document.body.append(d); d.showModal();
 }
 
@@ -95,6 +103,7 @@ function renderPanelNow() {
     onClose: () => { ui.selected = null; render(); },
     onEditStage: () => stageForm(store, byId(store.get().stages, ui.selected), { onDeleted: () => { ui.selected = null; } }),
     onNewTask: () => taskForm(store, byId(store.get().stages, ui.selected)),
+    onOpenStage: (id) => open(id, ui.tab),
   });
   document.body.classList.toggle('panel-open', Boolean(ui.selected && byId(store.get().stages, ui.selected)));
 }
@@ -112,9 +121,13 @@ function render() {
     if (asMap) renderMap($('map'), { state: store.get(), filters: ui.filters, selectedId: ui.selected, pathId: ui.pathId, onSelect: (id) => open(id) });
     else renderList();
     renderPanelNow();
+    const panelOpen = Boolean(ui.selected);
+    if (asMap && panelOpen !== ui.wasOpen) mc.fit(); // o painel muda a largura do mapa: reenquadra
+    ui.wasOpen = panelOpen;
   } else {
     document.body.classList.remove('panel-open'); $('panel').hidden = true;
     if (ui.view === 'equipe') renderTeam($('view-equipe'), { store, onOpenStage: (id) => open(id) });
+    if (ui.view === 'registros') renderRecords($('view-registros'), { store, kindFilter: ui.recFilter, onFilter: (v) => { ui.recFilter = v; render(); }, onOpenStage: (id) => open(id) });
     if (ui.view === 'melhorias') renderImprovements($('view-melhorias'), { store, statusFilter: ui.impFilter, onFilter: (v) => { ui.impFilter = v; render(); } });
   }
 }

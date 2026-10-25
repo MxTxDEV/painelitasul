@@ -2,10 +2,12 @@
 import { el, fmtDate, fmtDateTime, confirmDialog, toast } from './dom.js';
 import { openForm, options } from './form.js';
 import { SECTORS, STATUSES, PRIORITIES } from '../data/seed.js';
-import { byId, personName, stageTasks, isOverdue, neighbours, participants, stageIssues } from '../state/logic.js';
+import { byId, personName, stageTasks, isOverdue, neighbours, participants, stageIssues, recordActive } from '../state/logic.js';
+import { employeeForm } from './team.js';
+import { improvementForm } from './improvements.js';
 
 export const TABS = [
-  ['resumo', 'Resumo'], ['resp', 'Responsabilidades'], ['tarefas', 'Tarefas'], ['pessoas', 'Responsáveis'],
+  ['resumo', 'Visão completa'], ['resp', 'Responsabilidades'], ['tarefas', 'Tarefas'], ['pessoas', 'Responsáveis'],
   ['fluxo', 'Entradas e entregas'], ['kpis', 'Indicadores'], ['problemas', 'Problemas'], ['ideias', 'Melhorias'], ['hist', 'Histórico'],
 ];
 
@@ -72,15 +74,124 @@ function textBlock(store, stage, field, label, empty) {
       el('small', { class: 'muted', text: ' Uma linha por item.' })));
 }
 
-export function renderPanel(host, { store, stageId, tab, onTab, onClose, onEditStage, onNewTask }) {
+const sec = (title, ...kids) => el('section', { class: 'psec' }, el('h3', { text: title }), ...kids);
+
+export function renderPanel(host, { store, stageId, tab, onTab, onClose, onEditStage, onNewTask, onOpenStage }) {
   host.replaceChildren();
   const s = store.get(), stage = byId(s.stages, stageId);
   if (!stage) { host.hidden = true; return; }
   host.hidden = false;
   const nb = neighbours(s, stage.id), iss = stageIssues(s, stage);
+  const tasks = stageTasks(s, stage.id);
+
   const personSel = (field, label) => el('label', { class: 'field' }, el('span', { class: 'lbl', text: label }),
     el('select', { 'data-testid': `sel-${field}`, onChange: (e) => { store.updateStage(stage.id, { [field]: e.target.value || null }); } },
       options(s.employees.map((e) => ({ value: e.id, label: e.name })), { blank: 'A definir' }).map((o) => el('option', { value: o.value, text: o.label, selected: o.value === (stage[field] || '') }))));
+
+  const navChips = (list) => (list.length ? list.map((n) => el('button', { type: 'button', class: 'chip link', 'data-nav': n.id, title: n.sector !== stage.sector ? 'Transferência entre setores' : '', text: `${n.num ?? 'R'}. ${n.name}${n.sector !== stage.sector ? ` (${n.sector} ⇄)` : ''}`, onClick: () => onOpenStage(n.id) })) : null);
+
+  const taskList = () => (tasks.length ? el('ul', { class: 'tasks' }, tasks.map((t) => {
+    const late = isOverdue(t), done = t.status === 'Concluída';
+    return el('li', { class: `task${late ? ' late' : ''}${t.status === 'Bloqueada' ? ' blocked' : ''}${done ? ' done' : ''}`, 'data-testid': 'task-row' },
+      el('div', { class: 'task-main' },
+        el('strong', { text: t.title }),
+        el('span', { class: `pill st-${t.status.replace(/\s/g, '')}`, text: t.status }),
+        el('span', { class: 'pill pr', text: t.priority }),
+        late && el('span', { class: 'pill late', text: 'ATRASADA' })),
+      el('small', { class: 'muted', text: `Responsável: ${personName(s, t.ownerId)}${t.due ? ` · Prazo: ${fmtDate(t.due)}` : ''}${t.frequency ? ` · ${t.frequency}` : ''}${done && t.completedAt ? ` · Concluída em ${fmtDate(t.completedAt.slice(0, 10))}` : ''}` }),
+      t.description && el('p', { text: t.description }),
+      t.expected && el('small', { text: `Resultado esperado: ${t.expected}` }),
+      t.notes && el('small', { class: 'muted', text: `Obs.: ${t.notes}` }),
+      el('div', { class: 'row-actions' },
+        el('button', { class: 'btn small', type: 'button', text: 'Editar', onClick: () => taskForm(store, stage, t) }),
+        done ? el('button', { class: 'btn small', type: 'button', 'data-act': 'reopen', text: 'Reabrir', onClick: () => store.reopenTask(t.id) })
+          : el('button', { class: 'btn small', type: 'button', 'data-act': 'complete', text: 'Concluir', onClick: () => store.completeTask(t.id) })));
+  })) : el('p', { class: 'muted', text: 'Nenhuma tarefa cadastrada. As atividades previstas são só uma hipótese inicial.' }));
+
+  const tasksSection = () => sec('Tarefas',
+    el('button', { class: 'btn primary small', type: 'button', text: '+ Nova tarefa', 'data-testid': 'add-task', onClick: onNewTask }), taskList());
+
+  const ownersSection = () => sec('Responsável',
+    el('p', { 'data-testid': 'owner-line' }, el('strong', { text: 'Principal: ' }), stage.ownerId ? personName(s, stage.ownerId) : el('span', { class: 'undef', text: 'A definir' }),
+      el('span', { class: 'sep', text: ' · ' }), el('strong', { text: 'Substituto: ' }), stage.substituteId ? personName(s, stage.substituteId) : el('span', { class: 'undef', text: 'A definir' })),
+    el('button', { class: 'btn small', type: 'button', text: 'Definir / vincular pessoas', onClick: () => onTab('pessoas') }));
+
+  const pendingSection = () => {
+    const items = [];
+    if (iss.noOwner) items.push(el('li', { class: 'warn', text: '⚠ Responsável principal ainda não confirmado (A definir).' }));
+    tasks.filter((t) => isOverdue(t)).forEach((t) => items.push(el('li', { class: 'late', text: `Atrasada: ${t.title} (prazo ${fmtDate(t.due)})` })));
+    tasks.filter((t) => t.status === 'Bloqueada').forEach((t) => items.push(el('li', { class: 'late', text: `Bloqueada: ${t.title}` })));
+    const waiting = tasks.filter((t) => t.status === 'Aguardando terceiros');
+    waiting.forEach((t) => items.push(el('li', { text: `Aguardando terceiros: ${t.title}` })));
+    if (iss.open) items.push(el('li', { text: `${iss.open} tarefa(s) em aberto no total.` }));
+    stage.problems.forEach((p) => items.push(el('li', { text: `Problema recorrente: ${p}` })));
+    s.records.filter((r) => r.stageId === stage.id && recordActive(r)).forEach((r) => items.push(el('li', { text: `${r.kind} (${r.status}): ${r.title}` })));
+    return sec('Pendências', items.length ? el('ul', { class: 'list', 'data-testid': 'pending-list' }, items) : el('p', { class: 'muted', text: 'Nenhuma pendência registrada.' }));
+  };
+
+  const flowSection = () => sec('Entradas e entregas',
+    el('h4', { text: 'Entradas recebidas' }), bullets(stage.inputs, 'Não definidas.'),
+    el('p', { class: 'muted' }, 'Vem de: ', navChips(nb.prev) || 'ninguém (início do fluxo)'),
+    el('h4', { text: 'Entregas exigidas para o próximo setor' }), bullets(stage.outputs, 'Não definidas.'),
+    el('p', { class: 'muted' }, 'Segue para: ', navChips(nb.next) || 'fim do fluxo'),
+    el('small', { class: 'muted', text: '⇄ = transferência de responsabilidade entre setores.' }));
+
+  const kpiSection = () => {
+    const done = tasks.filter((t) => t.status === 'Concluída').length;
+    return sec('Indicadores',
+      stage.kpis.length ? bullets(stage.kpis, '') : el('p', { class: 'muted', text: 'Nenhum indicador definido.' }),
+      tasks.length ? el('p', { 'data-testid': 'stage-counts', text: `Tarefas: ${iss.open} abertas · ${done} concluídas · ${iss.overdue} atrasadas · ${iss.blocked} bloqueadas` })
+        : el('p', { class: 'muted', text: 'Sem dados registrados' }),
+      el('details', { class: 'edit' }, el('summary', { text: 'Editar indicadores' }), textBlock(store, stage, 'kpis', 'Indicadores', '')));
+  };
+
+  const ideasSection = () => {
+    const list = s.improvements.filter((i) => i.link?.type === 'stage' && i.link.id === stage.id);
+    return sec('Sugestões de melhoria',
+      list.length ? el('ul', { class: 'list', 'data-testid': 'stage-ideas' }, list.map((i) => el('li', { text: `${i.title} — ${i.status}` }))) : el('p', { class: 'muted', text: 'Nenhuma sugestão vinculada a esta etapa.' }),
+      el('button', { class: 'btn small', type: 'button', 'data-testid': 'add-stage-idea', text: '+ Sugestão para esta etapa', onClick: () => improvementForm(store, null, { link: { type: 'stage', id: stage.id }, sector: stage.sector }) }));
+  };
+
+  const peopleSection = () => {
+    const ppl = participants(s, stage.id);
+    const free = s.employees.filter((e) => !ppl.some((p) => p.id === e.id));
+    const pick = el('select', { 'data-testid': 'link-emp-select', 'aria-label': 'Funcionário a vincular' }, free.map((e) => el('option', { value: e.id, text: e.name })));
+    return [
+      sec('Responsáveis', personSel('ownerId', 'Responsável principal'), personSel('substituteId', 'Responsável substituto'),
+        el('small', { class: 'muted', text: 'O responsável só é definido por você, aqui. Vincular uma pessoa à etapa não a torna responsável.' })),
+      sec('Pessoas que participam desta etapa',
+        ppl.length ? el('ul', { class: 'list' }, ppl.map((p) => el('li', {}, `${p.name}${p.role ? ` — ${p.role}` : ''} `,
+          p.id === stage.ownerId && el('span', { class: 'pill', text: 'Responsável' }), p.id === stage.substituteId && el('span', { class: 'pill', text: 'Substituto' }),
+          (p.stageIds || []).includes(stage.id) && el('button', { class: 'btn small', type: 'button', text: 'Desvincular', onClick: () => store.linkEmployee(p.id, stage.id, false) }))))
+          : el('p', { class: 'muted', text: 'Ninguém vinculado.' }),
+        free.length ? el('div', { class: 'inline-row' }, pick, el('button', { class: 'btn small', type: 'button', 'data-testid': 'link-emp-btn', text: 'Vincular à etapa', onClick: () => store.linkEmployee(pick.value, stage.id, true) })) : null,
+        !s.employees.length && el('p', { class: 'muted', text: 'Nenhum funcionário cadastrado.' }),
+        el('button', { class: 'btn small', type: 'button', 'data-testid': 'new-emp-here', text: '+ Cadastrar novo funcionário', onClick: () => employeeForm(store, null, { stageIds: [stage.id] }) }))];
+  };
+
+  function body() {
+    switch (tab) {
+      case 'resumo': return [
+        sec('Objetivo', el('p', { text: stage.objective || 'Sem descrição.' })),
+        ownersSection(), pendingSection(), tasksSection(), flowSection(), kpiSection(), ideasSection(),
+        sec('Atividades previstas (hipótese inicial)', bullets(stage.activities, 'Nenhuma atividade cadastrada.'),
+          el('button', { class: 'btn small', type: 'button', text: 'Editar etapa', 'data-testid': 'edit-stage', onClick: onEditStage })),
+        sec('Observações', (() => { const ta = el('textarea', { rows: 3, value: stage.notes, 'aria-label': 'Observações da etapa' });
+          return el('div', {}, ta, el('button', { class: 'btn small', type: 'button', text: 'Salvar observação', onClick: () => { store.updateStage(stage.id, { notes: ta.value }); toast('Salvo'); } })); })())];
+      case 'resp': return [el('p', { class: 'muted', text: 'Responsabilidades confirmadas da etapa (nada vem preenchido por padrão).' }), textBlock(store, stage, 'responsibilities', 'Responsabilidades', 'Nenhuma responsabilidade definida — A definir.')];
+      case 'tarefas': return [tasksSection()];
+      case 'pessoas': return peopleSection();
+      case 'fluxo': return [flowSection()];
+      case 'kpis': return [kpiSection()];
+      case 'problemas': return [el('p', { class: 'muted', text: 'Registre problemas recorrentes observados nesta etapa.' }), textBlock(store, stage, 'problems', 'Problemas recorrentes', 'Nenhum problema registrado.')];
+      case 'ideias': return [ideasSection()];
+      case 'hist': {
+        const h = s.history.filter((x) => x.stageId === stage.id).slice(0, 50);
+        return h.length ? el('ul', { class: 'list' }, h.map((x) => el('li', {}, el('small', { class: 'muted', text: fmtDateTime(x.at) }), ' ', x.text))) : el('p', { class: 'muted', text: 'Sem alterações registradas.' });
+      }
+      default: return null;
+    }
+  }
 
   host.append(
     el('header', { class: 'panel-head' },
@@ -93,61 +204,4 @@ export function renderPanel(host, { store, stageId, tab, onTab, onClose, onEditS
     el('nav', { class: 'tabs', role: 'tablist' }, TABS.map(([id, label]) =>
       el('button', { type: 'button', role: 'tab', 'aria-selected': String(id === tab), class: `tab${id === tab ? ' active' : ''}`, 'data-tab': id, text: label, onClick: () => onTab(id) }))),
     el('div', { class: 'tab-body', role: 'tabpanel' }, body()));
-
-  function body() {
-    switch (tab) {
-      case 'resumo': return [
-        el('p', { text: stage.objective || 'Sem descrição.' }),
-        el('h3', { text: 'Atividades previstas (hipótese inicial)' }), bullets(stage.activities, 'Nenhuma atividade cadastrada.'),
-        el('button', { class: 'btn', type: 'button', text: 'Editar etapa', 'data-testid': 'edit-stage', onClick: onEditStage }),
-        el('h3', { text: 'Observações' }),
-        (() => { const ta = el('textarea', { rows: 3, value: stage.notes, 'aria-label': 'Observações da etapa' });
-          return el('div', {}, ta, el('button', { class: 'btn small', type: 'button', text: 'Salvar observação', onClick: () => { store.updateStage(stage.id, { notes: ta.value }); toast('Salvo'); } })); })()];
-      case 'resp': return [el('p', { class: 'muted', text: 'Responsabilidades confirmadas da etapa (nada vem preenchido por padrão).' }), textBlock(store, stage, 'responsibilities', 'Responsabilidades', 'Nenhuma responsabilidade definida — A definir.')];
-      case 'tarefas': {
-        const tasks = stageTasks(s, stage.id);
-        return [el('button', { class: 'btn primary', type: 'button', text: '+ Nova tarefa', 'data-testid': 'add-task', onClick: onNewTask }),
-          tasks.length ? el('ul', { class: 'tasks' }, tasks.map((t) => {
-            const late = isOverdue(t);
-            return el('li', { class: `task${late ? ' late' : ''}${t.status === 'Bloqueada' ? ' blocked' : ''}`, 'data-testid': 'task-row' },
-              el('div', { class: 'task-main' },
-                el('strong', { text: t.title }),
-                el('span', { class: `pill st-${t.status.replace(/\s/g, '')}`, text: t.status }),
-                el('span', { class: 'pill pr', text: t.priority }),
-                late && el('span', { class: 'pill late', text: 'ATRASADA' })),
-              el('small', { class: 'muted', text: `Responsável: ${personName(s, t.ownerId)}${t.due ? ` · Prazo: ${fmtDate(t.due)}` : ''}${t.frequency ? ` · ${t.frequency}` : ''}` }),
-              t.description && el('p', { text: t.description }),
-              t.expected && el('small', { text: `Resultado esperado: ${t.expected}` }),
-              t.notes && el('small', { class: 'muted', text: `Obs.: ${t.notes}` }),
-              el('div', { class: 'row-actions' },
-                el('button', { class: 'btn small', type: 'button', text: 'Editar', onClick: () => taskForm(store, stage, t) }),
-                t.status !== 'Concluída' && el('button', { class: 'btn small', type: 'button', text: 'Concluir', onClick: () => store.updateTask(t.id, { status: 'Concluída' }) })));
-          })) : el('p', { class: 'muted', text: 'Nenhuma tarefa cadastrada. As atividades previstas na aba Resumo são só uma hipótese inicial.' })];
-      }
-      case 'pessoas': {
-        const ppl = participants(s, stage.id);
-        return [personSel('ownerId', 'Responsável principal'), personSel('substituteId', 'Responsável substituto'),
-          !s.employees.length && el('p', { class: 'muted', text: 'Nenhum funcionário cadastrado. Cadastre em "Equipe e Responsabilidades".' }),
-          el('h3', { text: 'Pessoas envolvidas nesta etapa' }),
-          ppl.length ? el('ul', { class: 'list' }, ppl.map((p) => el('li', { text: `${p.name}${p.role ? ` — ${p.role}` : ''}` }))) : el('p', { class: 'muted', text: 'Ninguém vinculado.' })];
-      }
-      case 'fluxo': return [
-        el('h3', { text: 'Entradas recebidas' }), bullets(stage.inputs, 'Não definidas.'),
-        el('p', { class: 'muted' }, 'Vem de: ', nb.prev.length ? nb.prev.map((p) => `${p.name} (${p.sector}${p.sector !== stage.sector ? ' — transferência entre setores' : ''})`).join('; ') : 'ninguém (início do fluxo)'),
-        el('h3', { text: 'Entregas exigidas para o próximo setor' }), bullets(stage.outputs, 'Não definidas.'),
-        el('p', { class: 'muted' }, 'Segue para: ', nb.next.length ? nb.next.map((p) => `${p.name} (${p.sector}${p.sector !== stage.sector ? ' — transferência entre setores' : ''})`).join('; ') : 'fim do fluxo')];
-      case 'kpis': return [el('p', { class: 'muted', text: 'Indicadores sugeridos. Valores só aparecem quando houver dados cadastrados.' }), textBlock(store, stage, 'kpis', 'Indicadores', 'Nenhum indicador definido.'), el('p', { text: 'Sem dados registrados' })];
-      case 'problemas': return [el('p', { class: 'muted', text: 'Registre problemas recorrentes observados nesta etapa.' }), textBlock(store, stage, 'problems', 'Problemas recorrentes', 'Nenhum problema registrado.')];
-      case 'ideias': {
-        const list = s.improvements.filter((i) => i.link?.type === 'stage' && i.link.id === stage.id);
-        return [list.length ? el('ul', { class: 'list' }, list.map((i) => el('li', { text: `${i.title} — ${i.status}` }))) : el('p', { class: 'muted', text: 'Nenhuma sugestão vinculada a esta etapa.' }),
-          el('p', { class: 'muted', text: 'Para cadastrar, use a Central de Melhorias e vincule a esta etapa.' })];
-      }
-      case 'hist': {
-        const h = s.history.filter((x) => x.stageId === stage.id).slice(0, 50);
-        return h.length ? el('ul', { class: 'list' }, h.map((x) => el('li', {}, el('small', { class: 'muted', text: fmtDateTime(x.at) }), ' ', x.text))) : el('p', { class: 'muted', text: 'Sem alterações registradas.' });
-      }
-      default: return null;
-    }
-  }
 }
