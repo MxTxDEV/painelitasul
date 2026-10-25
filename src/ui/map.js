@@ -1,8 +1,8 @@
 // Mapa operacional: nós HTML + arestas SVG dentro de um canvas com pan/zoom.
 import { el, clear } from './dom.js';
+import { NODE_W, NODE_H } from '../data/seed.js';
 import { byId, personName, stageIssues, stageMatches, isHandoff, stageWaiting, edgeWaiting, pathRoute } from '../state/logic.js';
 
-const NODE_W = 260, NODE_H = 164;
 const view = { x: 20, y: 10, k: 0.8 };
 let fitted = false;
 
@@ -39,8 +39,8 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
   const stepNums = {};
   path?.steps.forEach((s, i) => { if (s.stageId) (stepNums[s.stageId] ||= []).push(i + 1); });
 
-  const maxX = Math.max(...state.stages.map((s) => s.x)) + NODE_W + 60;
-  const maxY = Math.max(...state.stages.map((s) => s.y)) + NODE_H + 60;
+  const maxX = Math.max(...state.stages.map((s) => s.x)) + NODE_W + 40;
+  const maxY = Math.max(...state.stages.map((s) => s.y)) + NODE_H + 40;
 
   const svg = svgEl('svg', { class: 'edges', width: maxX, height: maxY, 'aria-hidden': 'true' });
   const defs = svgEl('defs');
@@ -105,11 +105,19 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     apply();
   };
   const selSt = byId(state.stages, selectedId);
-  const fit = () => {
+  // all=true: enquadra o mapa inteiro (botão "Ajustar"). Sem all e com etapa selecionada (painel aberto, mapa estreito):
+  // mantém o zoom legível (≥ 78%) e centraliza a etapa selecionada. Sem seleção: enquadra tudo sem passar de 60% para baixo.
+  const fit = (all = false) => {
     const r = host.getBoundingClientRect();
-    view.k = Math.min(1, Math.max(0.5, Math.min(r.width / maxX, r.height / maxY))); // não encolhe abaixo de 50% para manter a leitura
-    view.x = Math.max(8, (r.width - maxX * view.k) / 2); view.y = 8; apply();
-    if (selSt) ensureVisible(selSt); // com o painel aberto o mapa fica estreito: mantém a etapa selecionada à vista
+    const whole = Math.min(r.width / maxX, r.height / maxY);
+    if (selSt && !all) {
+      view.k = Math.min(1, Math.max(whole, 0.78));
+      view.x = r.width / 2 - (selSt.x + NODE_W / 2) * view.k; view.y = r.height / 2 - (selSt.y + NODE_H / 2) * view.k;
+    } else {
+      view.k = Math.min(1, Math.max(all ? 0.3 : 0.6, whole));
+      view.x = Math.max(8, (r.width - maxX * view.k) / 2); view.y = 8;
+    }
+    apply();
   };
   if (!fitted) { fit(); fitted = true; } else apply();
   host.__fit = fit;
@@ -139,12 +147,21 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
 
   host.onwheel = (ev) => { ev.preventDefault(); const r = host.getBoundingClientRect(); zoomAt(ev.deltaY < 0 ? 1.1 : 0.9, ev.clientX - r.left, ev.clientY - r.top); };
   let drag = null;
-  host.onpointerdown = (ev) => { if (ev.target.closest('.node')) return; drag = { x: ev.clientX, y: ev.clientY, vx: view.x, vy: view.y }; host.setPointerCapture(ev.pointerId); host.classList.add('grabbing'); };
-  host.onpointermove = (ev) => { if (!drag) return; view.x = drag.vx + ev.clientX - drag.x; view.y = drag.vy + ev.clientY - drag.y; apply(); };
+  host.onpointerdown = (ev) => {
+    if (ev.target.closest('.node')) return;
+    host.__moved = false;
+    drag = { x: ev.clientX, y: ev.clientY, vx: view.x, vy: view.y }; host.setPointerCapture(ev.pointerId); host.classList.add('grabbing');
+  };
+  host.onpointermove = (ev) => {
+    if (!drag) return;
+    const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+    if (Math.hypot(dx, dy) > 4) host.__moved = true; // arrastar não conta como clique (não fecha o painel)
+    view.x = drag.vx + dx; view.y = drag.vy + dy; apply();
+  };
   host.onpointerup = host.onpointercancel = () => { drag = null; host.classList.remove('grabbing'); };
 }
 
 export const mapControls = (host) => ({
-  zoomIn: () => host.__zoom?.(1.2), zoomOut: () => host.__zoom?.(1 / 1.2), fit: () => host.__fit?.(),
+  zoomIn: () => host.__zoom?.(1.2), zoomOut: () => host.__zoom?.(1 / 1.2), fit: () => host.__fit?.(true),
 });
 export const getView = () => ({ ...view });

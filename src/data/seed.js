@@ -15,7 +15,8 @@ const stage = (n, id, name, sector, x, y, objective, activities, inputs, outputs
 });
 
 // Layout em serpentina (sem cruzamento de setas): linha 1 → direita, linha 2 ← esquerda, linha 3 ramifica da etapa 7.
-export const COL = 330, ROW = 210, X0 = 40, Y0 = 230;
+export const NODE_W = 288, NODE_H = 184;                       // tamanho do cartão (compartilhado com o mapa)
+export const COL = 340, ROW = 228, X0 = 40, Y_BRANCH = 24, Y0 = Y_BRANCH + NODE_H + 48;
 const at = (c, r) => [X0 + c * COL, Y0 + r * ROW];
 
 export const SEED_STAGES = [
@@ -86,7 +87,7 @@ export const SEED_STAGES = [
     ['Equipamento testado, liberado e disponibilidade atualizada'],
     ['Manutenções pendentes', 'Tempo de equipamento parado', 'Retrabalho em reparos']),
   // Nós de ramal (específicos de um serviço)
-  { id: 'b_munck', kind: 'branch', num: null, name: 'Análise das necessidades da operação (Munck)', sector: 'Comercial', x: X0 + 3.5 * COL, y: 40,
+  { id: 'b_munck', kind: 'branch', num: null, name: 'Análise das necessidades da operação (Munck)', sector: 'Comercial', x: X0 + 3.5 * COL, y: Y_BRANCH,
     objective: 'Entender o que a operação com caminhão Munck exige antes de orçar.',
     activities: ['Levantar local, carga e altura/alcance necessários', 'Verificar restrições de acesso', 'Definir condições de execução para o orçamento'],
     inputs: ['Solicitação de serviço com Munck'], outputs: ['Necessidades da operação documentadas'], kpis: [],
@@ -133,7 +134,7 @@ export const METRIC_DEFS = [
   { key: 'improvementsReview', label: 'Sugestões em avaliação', manual: false },
 ];
 
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
 export function createInitialState() {
   return {

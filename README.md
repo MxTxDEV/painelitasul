@@ -31,6 +31,11 @@ Também funciona hospedado em qualquer servidor estático (GitHub Pages, Vercel 
   - Compatibilidade: um valor informado manualmente (versão anterior) continua valendo só enquanto não houver registros do tipo, e aparece marcado como manual.
 - **Filtros** por setor, responsável, status e prioridade (etapas que não casam ficam esmaecidas).
 
+## Mapa: leitura, zoom e teclado
+- Cartões 288×184 com texto grande; em 1280–1920 px o mapa inteiro cabe na tela com nome ≥ 14 px, rodapé ≥ 11 px e selos ≥ 10,5 px renderizados. Até 1100 px o painel abre em **lista** (o mapa continua disponível pelo botão).
+- Com o painel aberto, o mapa centraliza a etapa selecionada em zoom ≥ 78 %; **Ajustar** mostra o mapa inteiro. Arrastar o fundo move o mapa e **não** fecha o painel; um clique simples no fundo fecha.
+- Teclado: Tab percorre os cartões; **setas** movem o foco para o cartão vizinho; Enter/Espaço abrem a etapa.
+
 ## Regras de dependência (bloqueios)
 Uma etapa só é marcada como "aguardando" quando **todas** as condições valem: a ligação não é um retorno (11→5 "retorno à disponibilidade" é só informativo), nenhuma ponta é ramal opcional (Munck, destinação), a etapa anterior tem tarefas em aberto e a etapa atual ainda não foi concluída. Sem tarefas na anterior, nada é afirmado.
 
@@ -54,6 +59,8 @@ src/
 tests/unit/          estado, lógica, migração e geometria do layout (node:test)
 tests/e2e/smoke.mjs  teste de interface em navegador real (fluxo geral)
 tests/e2e/gestao.mjs teste de interface: funcionários, tarefas, rotina, dependências, indicadores
+tests/e2e/refino.mjs  refinamento: legibilidade do mapa (px renderizados), cabeçalho/indicadores, arrasto/zoom/seleção, teclado, tema em todas as superfícies
+  tests/e2e/helpers/contraste.mjs  verificador de contraste WCAG AA usado pelos roteiros
 tests/e2e/auditoria.mjs auditoria funcional + visual: 13 cartões, filtros, caminhos, tema, contraste WCAG AA nos 2 temas, responsividade (360–1920 px), teclado
   ui/theme.js        tema claro/escuro (resolução, persistência, acompanhamento do sistema)
 tools/serve.mjs      servidor estático para desenvolvimento

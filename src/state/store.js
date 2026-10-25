@@ -1,6 +1,15 @@
 // Estado + persistência. O storage é injetável (localStorage no navegador, objeto falso nos testes).
 import { createInitialState, SEED_STAGES, STATE_VERSION, ROW, METRIC_DEFS } from '../data/seed.js';
 
+const relayout = (data) => { // reposiciona só as etapas padrão; etapas criadas pelo usuário vão para baixo, na mesma ordem
+  const seed = new Map(SEED_STAGES.map((x) => [x.id, x]));
+  let y = Math.max(...SEED_STAGES.map((x) => x.y)) + ROW;
+  for (const st of [...data.stages].sort((a, b) => a.y - b.y)) {
+    const base = seed.get(st.id);
+    if (base) { st.x = base.x; st.y = base.y; } else { st.x = 40; st.y = y; y += ROW; }
+  }
+};
+
 export const STORAGE_KEY = 'itasul-painel-v1';
 export const BACKUP_KEY = 'itasul-painel-v1-backup';
 const MAX_HISTORY = 300;
@@ -8,7 +17,7 @@ const LISTS = ['stages', 'edges', 'paths', 'tasks', 'employees', 'improvements',
 
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
-// Valida e migra (v1 → v2 → v3) sem perder nada do usuário: só acrescenta "records" e reposiciona etapas do layout padrão.
+// Valida e migra (v1 → … → v4). Só acrescenta/reposiciona: nenhum dado do usuário é removido sem perder nada do usuário: só acrescenta "records" e reposiciona etapas do layout padrão.
 export function validateState(data) {
   if (!data || typeof data !== 'object') throw new Error('Arquivo inválido: não é um objeto JSON.');
   if (typeof data.version !== 'number') throw new Error('Arquivo inválido: sem "version".');
@@ -21,19 +30,12 @@ export function validateState(data) {
 
 function migrate(data) {
   data.records ||= [];
-  if (data.version < 2) {
-    const seed = new Map(SEED_STAGES.map((s) => [s.id, s]));
-    let maxY = Math.max(...SEED_STAGES.map((s) => s.y));
-    for (const st of data.stages) {
-      const base = seed.get(st.id);
-      if (base) { st.x = base.x; st.y = base.y; } else { maxY += ROW; st.x = 40; st.y = maxY; }
-    }
-    data.version = 2;
-  }
+  if (data.version < 2) data.version = 2;
   if (data.version < 3) {
     for (const e of data.edges) if (e.from === 's11' && e.to === 's5') e.loop = true;
     data.version = 3;
   }
+  if (data.version < 4) { relayout(data); data.version = 4; }
   return data;
 }
 

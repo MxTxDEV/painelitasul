@@ -65,7 +65,7 @@ test('migração v2 → v3 marca o retorno 11→5 sem tocar nos dados do usuári
   old.tasks.push({ id: 't1', stageId: 's3', title: 'minha', status: 'Pendente' });
   const storage = { m: new Map([[STORAGE_KEY, JSON.stringify(old)]]), getItem(k) { return this.m.get(k) ?? null; }, setItem(k, v) { this.m.set(k, v); } };
   const s = createStore({ storage }).get();
-  assert.equal(s.version, 3);
+  assert.equal(s.version, 4);
   assert.equal(s.edges.find((e) => e.from === 's11' && e.to === 's5').loop, true);
   assert.equal(s.tasks[0].title, 'minha');
 });

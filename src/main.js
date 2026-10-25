@@ -1,5 +1,5 @@
 import { createStore } from './state/store.js';
-import { todayISO, computeIndicators, EMPTY_FILTERS, hasFilters, stageMatches, stageIssues, personName, byId, isOverdue } from './state/logic.js';
+import { todayISO, pathRoute, computeIndicators, EMPTY_FILTERS, hasFilters, stageMatches, stageIssues, personName, byId, isOverdue } from './state/logic.js';
 import { SECTORS, STATUSES, PRIORITIES, METRIC_DEFS } from './data/seed.js';
 import { el, append, clear, toast, confirmDialog, fmtDate } from './ui/dom.js';
 import { openForm, options } from './ui/form.js';
@@ -18,7 +18,7 @@ const store = createStore({ storage });
 if (!storage) setTimeout(() => toast('Armazenamento do navegador indisponível: alterações não serão salvas. Use Exportar.', 'error'), 300);
 
 const isNarrow = window.matchMedia('(max-width: 760px)').matches;
-const ui = { kpiOpen: { oper: !isNarrow, gestao: !isNarrow }, view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, layout: window.matchMedia('(max-width: 960px)').matches ? 'lista' : 'mapa' };
+const ui = { kpiOpen: { oper: !isNarrow, gestao: !isNarrow }, view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, layout: window.matchMedia('(max-width: 1100px)').matches ? 'lista' : 'mapa' };
 const $ = (id) => document.getElementById(id);
 
 // Tom do indicador: nunca só cor — sempre acompanhado de ícone e rótulo ("Atenção", "Crítico", "Em dia", "Sem dados").
@@ -97,7 +97,8 @@ function renderPaths() {
   append(clear($('paths')),
     el('span', { class: 'lbl', text: 'Caminho:' }), pick('', 'Visão geral'), s.paths.map((p) => pick(p.id, p.name)),
     path && el('ol', { class: 'steps', 'data-testid': 'path-steps' }, path.steps.map((st) =>
-      el('li', {}, el('button', { type: 'button', class: 'chip link', text: st.label, disabled: !st.stageId, onClick: () => open(st.stageId) })))));
+      el('li', {}, el('button', { type: 'button', class: 'chip link', text: st.label, disabled: !st.stageId, onClick: () => open(st.stageId) })))),
+    path && pathRoute(s, path).via.size ? el('p', { class: 'muted small path-hint', 'data-testid': 'path-hint', text: `Etapas com a marca "passa por aqui" (${[...pathRoute(s, path).via].map((id) => byId(s.stages, id)?.name).join('; ')}) são atravessadas pelo fluxo geral entre dois passos deste caminho. Ajuste as ligações se não se aplicarem.` }) : null);
 }
 
 function renderList() {
@@ -142,7 +143,8 @@ function render() {
     else { renderList(); if (focusStage) $('stage-list').querySelector(`[data-stage="${focusStage}"]`)?.focus({ preventScroll: true }); }
     renderPanelNow();
     const panelOpen = Boolean(ui.selected);
-    if (asMap && panelOpen !== ui.wasOpen) mc.fit(); // o painel muda a largura do mapa: reenquadra
+    if (asMap && (panelOpen !== ui.wasOpen || ui.selected !== ui.lastSel)) $('map').__fit?.(false); // painel abre/fecha ou outra etapa: reenquadra/centraliza
+    ui.lastSel = ui.selected;
     ui.wasOpen = panelOpen;
   } else {
     document.body.classList.remove('panel-open'); $('panel').hidden = true;
@@ -159,7 +161,10 @@ const mc = mapControls($('map'));
 $('zoom-in').onclick = mc.zoomIn; $('zoom-out').onclick = mc.zoomOut; $('zoom-fit').onclick = mc.fit;
 $('layout-toggle').onclick = () => { ui.layout = ui.layout === 'mapa' ? 'lista' : 'mapa'; render(); };
 $('add-stage').onclick = () => stageForm(store, null);
-$('map').addEventListener('click', () => { if (ui.selected) { ui.selected = null; render(); } });
+$('map').addEventListener('click', () => {
+  if ($('map').__moved) { $('map').__moved = false; return; } // foi um arrasto, não um clique
+  if (ui.selected) { ui.selected = null; render(); }
+});
 
 $('btn-export').onclick = () => {
   const a = el('a', { href: URL.createObjectURL(new Blob([store.exportJSON()], { type: 'application/json' })), download: `itasul-painel-${new Date().toISOString().slice(0, 10)}.json` });
