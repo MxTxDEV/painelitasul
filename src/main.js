@@ -10,27 +10,43 @@ import { renderTeam } from './ui/team.js';
 import { renderImprovements } from './ui/improvements.js';
 import { renderRecords, recordForm, recordLine } from './ui/records.js';
 import { renderRoutine } from './ui/routine.js';
+import { initTheme } from './ui/theme.js';
 
 let storage = null;
 try { storage = window.localStorage; storage.getItem('x'); } catch { storage = null; }
 const store = createStore({ storage });
-if (!storage) setTimeout(() => toast('Armazenamento do navegador indisponível: alterações não serão salvas. Use Exportar.', true), 300);
+if (!storage) setTimeout(() => toast('Armazenamento do navegador indisponível: alterações não serão salvas. Use Exportar.', 'error'), 300);
 
-const ui = { view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, layout: window.matchMedia('(max-width: 760px)').matches ? 'lista' : 'mapa' };
+const isNarrow = window.matchMedia('(max-width: 760px)').matches;
+const ui = { kpiOpen: { oper: !isNarrow, gestao: !isNarrow }, view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, layout: window.matchMedia('(max-width: 960px)').matches ? 'lista' : 'mapa' };
 const $ = (id) => document.getElementById(id);
 
+// Tom do indicador: nunca só cor — sempre acompanhado de ícone e rótulo ("Atenção", "Crítico", "Em dia", "Sem dados").
+const TONES = {
+  danger: ['⚠', 'Crítico'], warn: ['⚠', 'Atenção'], ok: ['✔', 'Em dia'], none: ['', ''],
+};
+function toneOf(key, i) {
+  if (i.value === null) return 'nodata';
+  const bad = { tasksOverdue: 'danger', 'extra-blocked': 'danger', 'extra-noowner': 'warn', 'extra-waiting': 'warn', equipmentDown: 'warn', financePending: 'warn' }[key];
+  if (bad) return i.value > 0 ? bad : 'ok';
+  return 'none';
+}
+
 function renderIndicators() {
-  const s = store.get(), ind = computeIndicators(s);
-  const tile = (i, onClick, extraCls = '') => el('button', { type: 'button', class: `kpi${i.value === null ? ' nodata' : ''}${extraCls}`, 'data-kpi': i.key, onClick },
-    el('span', { class: 'kpi-val', text: i.value === null ? 'Sem dados registrados' : String(i.value) }), el('span', { class: 'kpi-lbl', text: i.label }));
-  const main = METRIC_DEFS.map((d) => {
-    const i = ind[d.key];
-    return tile(i, () => showItems(i), i.value > 0 && d.key === 'tasksOverdue' ? ' hot' : '');
-  });
-  const ex = ind.extra;
-  const extra = [['open', 'extra-open'], ['blocked', 'extra-blocked'], ['noOwner', 'extra-noowner'], ['waiting', 'extra-waiting'], ['problems', 'extra-problems']].map(([k, key]) =>
-    tile({ ...ex[k], key }, () => showItems(ex[k]), (k === 'noOwner' && ex[k].value > 0) || (k === 'blocked' && ex[k].value > 0) ? ' hot' : ''));
-  $('kpis').replaceChildren(...main, ...extra);
+  const s = store.get(), ind = computeIndicators(s), ex = ind.extra;
+  const tile = (key, i) => {
+    const tone = toneOf(key, i), [icon, word] = TONES[tone] || ['', ''];
+    return el('button', { type: 'button', class: `kpi${i.value === null ? ' nodata' : ''}${TONES[tone] && tone !== 'none' ? ` tone-${tone}` : ''}`, 'data-kpi': key, title: 'Clique para ver os registros', onClick: () => showItems({ ...i, key: i.key || key }) },
+      el('span', { class: 'kpi-val', text: i.value === null ? '—' : String(i.value) }),
+      el('span', { class: 'kpi-lbl', text: i.label }),
+      i.value === null ? el('span', { class: 'kpi-tone', text: 'Sem dados registrados' }) : (icon ? el('span', { class: 'kpi-tone', text: `${icon} ${word}` }) : i.manual ? el('span', { class: 'kpi-tone', text: 'valor manual' }) : null));
+  };
+  const group = (id, title, tiles) => el('details', { class: 'kpi-group', open: ui.kpiOpen[id], onToggle: (e) => { ui.kpiOpen[id] = e.target.open; } },
+    el('summary', { text: title }), el('div', { class: 'kpi-row' }, tiles));
+  append(clear($('kpis')),
+    group('oper', 'Operação comercial', ['quotesOpen', 'quotesAwaiting', 'rentalsActive', 'deliveriesPlanned', 'financePending', 'equipmentDown', 'maintenancePending'].map((k) => tile(k, ind[k]))),
+    group('gestao', 'Gestão de tarefas e equipe', [tile('extra-open', ex.open), tile('tasksOverdue', ind.tasksOverdue), tile('extra-blocked', ex.blocked), tile('extra-noowner', ex.noOwner),
+      tile('extra-waiting', ex.waiting), tile('extra-problems', ex.problems), tile('improvementsReview', ind.improvementsReview)]));
 }
 
 function editMetric(def) {
@@ -111,6 +127,8 @@ function renderPanelNow() {
 }
 
 function render() {
+  const focusStage = document.activeElement?.classList?.contains('list-card') ? document.activeElement.dataset.stage : null;
+  $('boot')?.remove();
   if (ui.selected && !byId(store.get().stages, ui.selected)) ui.selected = null;
   document.querySelectorAll('[data-view]').forEach((b) => { const on = b.dataset.view === ui.view; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); });
   document.querySelectorAll('.view').forEach((v) => { v.hidden = v.id !== `view-${ui.view}`; });
@@ -121,7 +139,7 @@ function render() {
     $('map').hidden = !asMap; $('stage-list').hidden = asMap; $('map-tools').hidden = !asMap;
     $('layout-toggle').textContent = asMap ? 'Ver como lista' : 'Ver como mapa';
     if (asMap) renderMap($('map'), { state: store.get(), filters: ui.filters, selectedId: ui.selected, pathId: ui.pathId, onSelect: (id) => open(id) });
-    else renderList();
+    else { renderList(); if (focusStage) $('stage-list').querySelector(`[data-stage="${focusStage}"]`)?.focus({ preventScroll: true }); }
     renderPanelNow();
     const panelOpen = Boolean(ui.selected);
     if (asMap && panelOpen !== ui.wasOpen) mc.fit(); // o painel muda a largura do mapa: reenquadra
@@ -145,20 +163,30 @@ $('map').addEventListener('click', () => { if (ui.selected) { ui.selected = null
 
 $('btn-export').onclick = () => {
   const a = el('a', { href: URL.createObjectURL(new Blob([store.exportJSON()], { type: 'application/json' })), download: `itasul-painel-${new Date().toISOString().slice(0, 10)}.json` });
-  document.body.append(a); a.click(); a.remove(); toast('Backup exportado.');
+  document.body.append(a); a.click(); a.remove(); toast('Backup exportado.', 'success');
 };
 $('file-import').addEventListener('change', async (ev) => {
   const file = ev.target.files[0]; ev.target.value = '';
   if (!file) return;
   try {
     if (!(await confirmDialog('Importar vai substituir os dados atuais. Uma cópia de segurança será guardada antes. Continuar?'))) return;
-    store.importJSON(await file.text()); toast('Dados importados. Cópia anterior guardada.');
-  } catch (e) { toast(`Importação cancelada: ${e.message}`, true); }
+    store.importJSON(await file.text()); toast('Dados importados. Cópia anterior guardada.', 'success');
+  } catch (e) { toast(`Importação cancelada: ${e.message}`, 'error'); }
 });
 $('btn-restore').onclick = async () => {
-  try { if (!store.hasBackup()) throw new Error('Não há cópia de segurança.'); if (await confirmDialog('Restaurar a última cópia de segurança (antes da última importação/reinício)?')) { store.restoreBackup(); toast('Restaurado.'); } } catch (e) { toast(e.message, true); }
+  try { if (!store.hasBackup()) throw new Error('Não há cópia de segurança.'); if (await confirmDialog('Restaurar a última cópia de segurança (antes da última importação/reinício)?')) { store.restoreBackup(); toast('Cópia de segurança restaurada.', 'success'); } } catch (e) { toast(e.message, 'error'); }
 };
-$('btn-reset').onclick = async () => { if (await confirmDialog('Reiniciar o painel com os dados iniciais? Seus dados atuais ficam guardados em uma cópia de segurança.')) { store.reset(); ui.selected = null; toast('Painel reiniciado.'); } };
+$('btn-reset').onclick = async () => { if (await confirmDialog('Reiniciar o painel com os dados iniciais? Seus dados atuais ficam guardados em uma cópia de segurança.')) { store.reset(); ui.selected = null; toast('Painel reiniciado.', 'success'); } };
+
+// Tema claro/escuro (preferência salva > sistema)
+const theme = initTheme({ button: $('theme-toggle') });
+$('btn-system-theme').onclick = () => { theme.followSystem(); $('data-menu').open = false; toast('Tema do sistema ativado.', 'success'); };
+// Menu "Dados": fecha ao clicar fora ou com Esc
+document.addEventListener('click', (ev) => { const m = $('data-menu'); if (m.open && !m.contains(ev.target)) m.open = false; });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { const m = $('data-menu'); if (m.open) { m.open = false; m.querySelector('summary').focus(); } } });
+// Confirmação de sucesso para cada alteração gravada
+let lastHistory = store.get().history[0]?.id;
+store.subscribe((st) => { const h = st.history[0]; if (h && h.id !== lastHistory) { lastHistory = h.id; toast(h.text, 'success'); } });
 
 store.subscribe(render);
 render();

@@ -4,6 +4,7 @@ import { openForm, options } from './form.js';
 import { STATUSES, PRIORITIES } from '../data/seed.js';
 import { byId, personName, isOverdue } from '../state/logic.js';
 
+export const STATUS_ICON = { Pendente: '○', 'Em andamento': '◐', 'Aguardando terceiros': '⏳', Bloqueada: '⛔', Concluída: '✔' };
 export const FREQUENCIES = ['Diária', 'Semanal', 'Mensal', 'A cada locação', 'Sob demanda'];
 
 // stage pode ser null (o usuário escolhe a etapa no formulário). preset: valores iniciais (ex.: ownerId).
@@ -41,9 +42,9 @@ export function taskRow(store, t, { showStage = false, onOpenStage } = {}) {
   return el('li', { class: `task${late ? ' late' : ''}${t.status === 'Bloqueada' ? ' blocked' : ''}${done ? ' done' : ''}`, 'data-testid': 'task-row', 'data-task': t.id },
     el('div', { class: 'task-main' },
       el('strong', { text: t.title }),
-      el('span', { class: `pill st-${t.status.replace(/\s/g, '')}`, text: t.status }),
+      el('span', { class: `pill st-${t.status.replace(/\s/g, '')}`, text: `${STATUS_ICON[t.status] || ''} ${t.status}` }),
       el('span', { class: 'pill pr', text: t.priority }),
-      late && el('span', { class: 'pill late', text: 'ATRASADA' })),
+      late && el('span', { class: 'pill late', text: '⚠ ATRASADA' })),
     el('small', { class: 'muted', text: `Responsável: ${personName(s, t.ownerId)}${t.due ? ` · Prazo: ${fmtDate(t.due)}` : ' · Sem prazo'}${t.frequency ? ` · ${t.frequency}` : ''}${done && t.completedAt ? ` · Concluída em ${fmtDate(t.completedAt.slice(0, 10))}` : ''}` }),
     showStage && stage && el('small', {}, 'Etapa: ', onOpenStage ? el('button', { class: 'chip link', type: 'button', text: stage.name, onClick: () => onOpenStage(stage.id) }) : stage.name),
     t.description && el('p', { text: t.description }),

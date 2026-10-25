@@ -1,5 +1,5 @@
 // Central de Melhorias. Ideias da IA ficam em seção própria e só viram sugestão por ação do usuário.
-import { el, confirmDialog } from './dom.js';
+import { el, render, confirmDialog } from './dom.js';
 import { openForm, options } from './form.js';
 import { IMPROVEMENT_STATUSES, LEVELS, SECTORS, AI_SUGGESTIONS } from '../data/seed.js';
 import { byId, personName } from '../state/logic.js';
@@ -47,7 +47,7 @@ export function improvementForm(store, imp, preset = {}) {
 export function renderImprovements(host, { store, statusFilter, onFilter }) {
   const s = store.get();
   const list = s.improvements.filter((i) => !statusFilter || i.status === statusFilter);
-  host.replaceChildren(
+  render(host,
     el('div', { class: 'view-head' },
       el('div', {}, el('h2', { text: 'Central de Melhorias' }), el('p', { class: 'muted', text: 'Registre problemas e ideias. Cada sugestão pode ser vinculada a uma etapa, tarefa ou funcionário.' })),
       el('button', { class: 'btn primary', type: 'button', 'data-testid': 'add-improvement', text: '+ Nova sugestão', onClick: () => improvementForm(store) })),

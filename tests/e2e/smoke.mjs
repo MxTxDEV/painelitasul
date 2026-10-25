@@ -227,6 +227,7 @@ try {
     assert.equal(await mob.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await mob.click('.list-card >> nth=0');
     assert.equal(await mob.locator('#panel').isVisible(), true);
+    await mob.click('#panel [aria-label="Fechar painel"]');
     await mob.click('#layout-toggle');
   });
   console.log('\nTodos os testes de interface passaram.');

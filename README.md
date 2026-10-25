@@ -12,6 +12,12 @@ npm run test:e2e     # testes de interface (usa o Playwright já instalado no am
 ```
 Também funciona hospedado em qualquer servidor estático (GitHub Pages, Vercel etc.). Não abra `index.html` direto pelo `file://` (módulos ES exigem http).
 
+## Tema claro e escuro
+- Botão sol/lua no cabeçalho (visível em todas as seções) alterna na hora entre **modo claro** e **modo escuro**. Todas as cores vêm de variáveis CSS (`:root` e `[data-theme="escuro"]` em `src/styles.css`): mapa, setas, cartões, painéis, tabelas, formulários, diálogos, menus e mensagens se adaptam.
+- A escolha é salva no `localStorage` (chave `itasul-tema`) e **vence a preferência do sistema**. Sem escolha salva, o painel segue o tema do sistema operacional (inclusive ao vivo). "Dados → Usar o tema do sistema" apaga a escolha.
+- Um pequeno script no `<head>` aplica o tema antes da primeira pintura (sem "flash"). O botão tem `aria-pressed` e nome acessível que indica o tema ativo.
+- Estados nunca dependem só de cor: indicadores trazem ícone + rótulo (Crítico/Atenção/Em dia), tarefas trazem ícone no status, etapas sem responsável dizem "A definir", mensagens trazem ✔/✖.
+
 ## Telas
 - **Mapa do processo** — 11 etapas + 2 ramais (Análise Munck, Destinação de caçambas). Arraste para mover, roda do mouse/botões para zoom, "Ajustar" para enquadrar. Seletor de **caminho** (Caçambas, Equipamentos, Caminhão Munck, Manutenção) destaca só as etapas do caminho, numeradas, sem perder a visão geral. Em telas pequenas abre em **lista**.
 - **Painel lateral amplo** (clique numa etapa) — a aba **Visão completa** reúne objetivo, responsável (principal/substituto), pendências, tarefas (adicionar, editar, concluir, reabrir), entradas e entregas (com links para as etapas vizinhas e aviso ⇄ de transferência entre setores), indicadores, sugestões de melhoria e atividades previstas. As demais abas (Responsabilidades, Tarefas, Responsáveis, Entradas e entregas, Indicadores, Problemas, Melhorias, Histórico) detalham/editam cada parte. Na aba **Responsáveis** dá para vincular/desvincular pessoas e cadastrar um funcionário novo já ligado à etapa. Vincular **não** define responsável: isso é sempre uma escolha explícita.
@@ -24,6 +30,9 @@ Também funciona hospedado em qualquer servidor estático (GitHub Pages, Vercel 
   - Orçamentos abertos = Orçamento `Aberto` · aguardando retorno = Orçamento `Aguardando retorno` · Locações em andamento = Locação `Em andamento` · Entregas previstas = Entrega `Aberto`/`Programado` · Pendências financeiras / Equipamentos indisponíveis = registros do tipo não concluídos/cancelados · Manutenções pendentes = tarefas abertas da etapa 11 + registros "Manutenção" ativos · Tarefas atrasadas, pendentes e bloqueadas = das tarefas · Sugestões em avaliação = das melhorias.
   - Compatibilidade: um valor informado manualmente (versão anterior) continua valendo só enquanto não houver registros do tipo, e aparece marcado como manual.
 - **Filtros** por setor, responsável, status e prioridade (etapas que não casam ficam esmaecidas).
+
+## Regras de dependência (bloqueios)
+Uma etapa só é marcada como "aguardando" quando **todas** as condições valem: a ligação não é um retorno (11→5 "retorno à disponibilidade" é só informativo), nenhuma ponta é ramal opcional (Munck, destinação), a etapa anterior tem tarefas em aberto e a etapa atual ainda não foi concluída. Sem tarefas na anterior, nada é afirmado.
 
 ## Dados e segurança
 - Dados de versões anteriores são **migrados automaticamente** (v1 → v2): nada é apagado; apenas é adicionada a lista de registros e as etapas padrão voltam à nova posição (etapas criadas por você ficam abaixo do mapa).
@@ -45,6 +54,8 @@ src/
 tests/unit/          estado, lógica, migração e geometria do layout (node:test)
 tests/e2e/smoke.mjs  teste de interface em navegador real (fluxo geral)
 tests/e2e/gestao.mjs teste de interface: funcionários, tarefas, rotina, dependências, indicadores
+tests/e2e/auditoria.mjs auditoria funcional + visual: 13 cartões, filtros, caminhos, tema, contraste WCAG AA nos 2 temas, responsividade (360–1920 px), teclado
+  ui/theme.js        tema claro/escuro (resolução, persistência, acompanhamento do sistema)
 tools/serve.mjs      servidor estático para desenvolvimento
 ```
 Modelo: **etapas** (processos) ≠ **funcionários** (pessoas) ≠ **tarefas**. Uma pessoa liga-se a várias etapas por `stageIds`/responsável/substituto sem duplicar cadastro; uma etapa pode ter várias pessoas e tarefas.

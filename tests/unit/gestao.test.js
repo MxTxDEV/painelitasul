@@ -24,7 +24,7 @@ test('dependência: etapa aguarda a anterior apenas quando ela tem tarefas em ab
   const w = stageWaiting(st.get(), 's4');
   assert.deepEqual(w.map((d) => d.from.id), ['s3']);
   assert.equal(w[0].handoff, true, 's3 (Atendimento) → s4 (Comercial) é transferência de setor');
-  assert.deepEqual(computeIndicators(st.get()).extra.waiting.stages.map((x) => x.id).sort(), ['b_munck', 's4'], 's4 e o ramal Munck dependem de s3');
+  assert.deepEqual(computeIndicators(st.get()).extra.waiting.stages.map((x) => x.id), ['s4'], 'só s4 (o ramal Munck é opcional e não bloqueia)');
   st.completeTask(t.id);
   assert.deepEqual(stageWaiting(st.get(), 's4'), []);
   assert.equal(computeIndicators(st.get()).extra.waiting.value, 0);

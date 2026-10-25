@@ -100,8 +100,12 @@ export function renderPanel(host, { store, stageId, tab, onTab, onClose, onEditS
     return sec('Dependências e transferências de responsabilidade',
       deps.length ? el('ul', { class: 'list', 'data-testid': 'deps-list' }, deps.map((d) => el('li', { class: d.waiting ? 'late' : '', 'data-dep': d.from.id },
         `Depende de "${d.from.name}" (${d.from.sector})${d.handoff ? ' ⇄ transferência entre setores' : ''}${d.optional ? ' — ramal opcional' : ''}: `,
-        d.progress.state === 'concluida' ? '✔ etapa anterior concluída'
-          : d.progress.state === 'em-aberto' ? `⏳ etapa anterior NÃO concluída (${d.progress.open} tarefa(s) em aberto)` : '○ sem tarefas cadastradas na etapa anterior (não dá para verificar)')))
+        d.loop ? '↺ retorno do fluxo — informativo, não bloqueia esta etapa'
+          : d.optional ? '○ ramal opcional — não bloqueia'
+            : d.progress.state === 'concluida' ? '✔ etapa anterior concluída'
+              : d.waiting ? `⏳ etapa anterior NÃO concluída (${d.progress.open} tarefa(s) em aberto)`
+                : d.progress.state === 'em-aberto' ? `✔ esta etapa já foi concluída (a anterior ainda tem ${d.progress.open} tarefa(s) em aberto)`
+                  : '○ sem tarefas cadastradas na etapa anterior (não dá para verificar)')))
         : el('p', { class: 'muted', text: 'Etapa inicial: não depende de outra.' }),
       nb.next.length ? el('div', {}, el('h4', { text: 'Entregas para o próximo setor' }), el('ul', { class: 'list' }, nb.next.map((n) =>
         el('li', { text: `${n.name} (${n.sector}${n.sector !== stage.sector ? ' ⇄' : ''}): ${stage.outputs.join('; ') || 'entrega A definir'}` })))) : null);

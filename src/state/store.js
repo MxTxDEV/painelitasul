@@ -1,5 +1,5 @@
 // Estado + persistência. O storage é injetável (localStorage no navegador, objeto falso nos testes).
-import { createInitialState, SEED_STAGES, STATE_VERSION, ROW } from '../data/seed.js';
+import { createInitialState, SEED_STAGES, STATE_VERSION, ROW, METRIC_DEFS } from '../data/seed.js';
 
 export const STORAGE_KEY = 'itasul-painel-v1';
 export const BACKUP_KEY = 'itasul-painel-v1-backup';
@@ -8,7 +8,7 @@ const LISTS = ['stages', 'edges', 'paths', 'tasks', 'employees', 'improvements',
 
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
-// Valida e migra (v1 → v2) sem perder nada do usuário: só acrescenta "records" e reposiciona etapas do layout padrão.
+// Valida e migra (v1 → v2 → v3) sem perder nada do usuário: só acrescenta "records" e reposiciona etapas do layout padrão.
 export function validateState(data) {
   if (!data || typeof data !== 'object') throw new Error('Arquivo inválido: não é um objeto JSON.');
   if (typeof data.version !== 'number') throw new Error('Arquivo inválido: sem "version".');
@@ -29,6 +29,10 @@ function migrate(data) {
       if (base) { st.x = base.x; st.y = base.y; } else { maxY += ROW; st.x = 40; st.y = maxY; }
     }
     data.version = 2;
+  }
+  if (data.version < 3) {
+    for (const e of data.edges) if (e.from === 's11' && e.to === 's5') e.loop = true;
+    data.version = 3;
   }
   return data;
 }
@@ -182,7 +186,7 @@ export function createStore({ storage = null, now = () => new Date() } = {}) {
         if (!Number.isFinite(n) || n < 0) throw new Error('Informe um número maior ou igual a zero.');
         state.metrics[key] = n;
       }
-      commit(`Indicador atualizado: ${key}`);
+      commit(`Indicador atualizado: ${METRIC_DEFS.find((d) => d.key === key)?.label ?? key}`);
     },
 
     // Backup / restauração. Importar e reiniciar guardam antes uma cópia do estado atual.

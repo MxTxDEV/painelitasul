@@ -133,17 +133,18 @@ try {
     assert.match(await page.locator('[data-testid="deps-list"]').innerText(), /transferência entre setores/);
     assert.equal(await page.locator('[data-testid="node-s4"].waiting').count(), 1);
     assert.match(await page.locator('[data-testid="node-s4"]').innerText(), /aguarda 1/);
-    assert.equal(await kpi(), k0 + 2, 's4 e o ramal Munck passam a aguardar a etapa 3');
+    assert.equal(await kpi(), k0 + 1, 's4 passa a aguardar a etapa 3 (ramal é opcional)');
     assert.equal(await kpi(), await page.locator('.node.waiting').count(), 'indicador = cartões sinalizados');
     await page.click('[data-testid="node-s3"]'); await page.click('.tab[data-tab="tarefas"]');
     await page.click('#panel [data-testid="task-row"] [data-act="complete"]');
     await page.click('[data-testid="node-s4"]'); await page.click('.tab[data-tab="resumo"]');
     assert.match(await page.locator('[data-testid="deps-list"]').innerText(), /etapa anterior concluída/);
     assert.equal(await page.locator('[data-testid="node-s4"].waiting').count(), 0);
-    assert.equal(await kpi(), k0);
+    assert.equal(await kpi(), k0 - 1, 's3 concluída deixa de aguardar a etapa 2; s4 deixa de aguardar s3');
     await page.click('[data-testid="node-s3"]'); await page.click('.tab[data-tab="tarefas"]');
     await page.click('#panel [data-testid="task-row"] [data-act="reopen"]');
-    assert.equal(await kpi(), k0 + 2);
+    assert.equal(await kpi(), k0 + 1);
+    assert.equal(await kpi(), await page.locator('.node.waiting').count(), 'indicador = cartões sinalizados');
   });
 
   await t('tabela de transferências entre setores mostra origem em aberto', async () => {

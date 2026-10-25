@@ -102,7 +102,7 @@ export const SEED_EDGES = [
   ['s1', 's2'], ['s2', 's3'], ['s3', 's4'], ['s4', 's5'], ['s5', 's6'], ['s6', 's7'], ['s7', 's8'],
   ['s7', 's9'], ['s9', 's10'], ['s9', 's11'], ['s11', 's5'],
   ['s3', 'b_munck'], ['b_munck', 's4'], ['s8', 'b_dest'],
-].map(([from, to]) => ({ from, to }));
+].map(([from, to]) => ({ from, to, ...(from === 's11' && to === 's5' ? { loop: true } : {}) })); // loop = retorno (não é dependência bloqueante)
 
 export const SEED_PATHS = [
   { id: 'cacambas', name: 'Caçambas', steps: [['Solicitação', 's2'], ['Orçamento', 's4'], ['Disponibilidade da caçamba', 's5'], ['Agendamento', 's7'], ['Entrega', 's7'], ['Retirada', 's7'], ['Registro financeiro', 's8'], ['Destinação adequada e encerramento', 'b_dest']] },
@@ -133,7 +133,7 @@ export const METRIC_DEFS = [
   { key: 'improvementsReview', label: 'Sugestões em avaliação', manual: false },
 ];
 
-export const STATE_VERSION = 2;
+export const STATE_VERSION = 3;
 
 export function createInitialState() {
   return {

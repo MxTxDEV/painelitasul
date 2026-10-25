@@ -59,15 +59,14 @@ export function taskMatches(task, f) {
 export function stageMatches(state, stage, f) {
   if (!hasFilters(f)) return true;
   if (f.sector && stage.sector !== f.sector) return false;
-  if (f.person) {
-    const none = f.person === '__none';
-    const ok = none ? !stage.ownerId
-      : stage.ownerId === f.person || stage.substituteId === f.person ||
-        stageTasks(state, stage.id).some((t) => t.ownerId === f.person);
-    if (!ok) return false;
-  }
+  const tasks = stageTasks(state, stage.id);
   if (f.status || f.priority) {
-    if (!stageTasks(state, stage.id).some((t) => taskMatches(t, { ...f, person: '' }))) return false;
+    // Com status/prioridade, a MESMA tarefa precisa casar com todos os filtros (inclusive o responsável).
+    return tasks.some((t) => taskMatches(t, f));
+  }
+  if (f.person) {
+    return f.person === '__none' ? !stage.ownerId
+      : stage.ownerId === f.person || stage.substituteId === f.person || tasks.some((t) => t.ownerId === f.person);
   }
   return true;
 }
@@ -134,14 +133,24 @@ export function stageProgress(state, stageId) {
   return { total: t.length, open, done: t.length - open, state: !t.length ? 'sem-tarefas' : open ? 'em-aberto' : 'concluida' };
 }
 
-// Dependências = ligações que chegam na etapa. Ramais (kind "branch") são opcionais e não geram alerta.
+// Dependências = ligações que chegam na etapa. Só BLOQUEIA quando: a ligação não é um retorno (loop), nenhuma das pontas
+// é um ramal opcional, a etapa de origem tem tarefas em aberto e a etapa de destino ainda não foi concluída.
+const edgeBlocks = (state, e, from, to) =>
+  !e.loop && from.kind !== 'branch' && to.kind !== 'branch' &&
+  stageProgress(state, from.id).state === 'em-aberto' && stageProgress(state, to.id).state !== 'concluida';
+
+export const edgeWaiting = (state, e) => {
+  const from = byId(state.stages, e.from), to = byId(state.stages, e.to);
+  return Boolean(from && to && edgeBlocks(state, e, from, to));
+};
+
 export function dependencies(state, stageId) {
+  const to = byId(state.stages, stageId);
   return state.edges.filter((e) => e.to === stageId).map((e) => {
     const from = byId(state.stages, e.from);
-    if (!from) return null;
-    const progress = stageProgress(state, from.id);
-    const optional = from.kind === 'branch';
-    return { from, progress, optional, handoff: from.sector !== byId(state.stages, stageId)?.sector, waiting: !optional && progress.state === 'em-aberto' };
+    if (!from || !to) return null;
+    return { from, progress: stageProgress(state, from.id), loop: Boolean(e.loop), optional: from.kind === 'branch' || to.kind === 'branch',
+      handoff: from.sector !== to.sector, waiting: edgeBlocks(state, e, from, to) };
   }).filter(Boolean);
 }
 
@@ -150,7 +159,7 @@ export const stageWaiting = (state, stageId) => dependencies(state, stageId).fil
 export function handoffList(state) {
   return state.edges.map((e) => {
     const from = byId(state.stages, e.from), to = byId(state.stages, e.to);
-    return from && to && from.sector !== to.sector ? { edge: e, from, to, progress: stageProgress(state, from.id), waiting: from.kind !== 'branch' && stageProgress(state, from.id).state === 'em-aberto' } : null;
+    return from && to && from.sector !== to.sector ? { edge: e, from, to, progress: stageProgress(state, from.id), waiting: edgeBlocks(state, e, from, to) } : null;
   }).filter(Boolean);
 }
 
@@ -185,4 +194,28 @@ export function routineItems(state, { person = '', day, groups = [] }, today = t
     carried: mine.filter((t) => t.due && t.due < day && t.status !== 'Concluída'),
     undated: mine.filter((t) => !t.due),
   };
+}
+
+// Rota de um caminho específico: para cada par de etapas consecutivas (distintas), o menor trajeto pelas ligações reais
+// (sem retornos). "via" = etapas atravessadas que não estão listadas no caminho.
+export function pathRoute(state, path) {
+  const listed = [...new Set(path.steps.map((x) => x.stageId).filter(Boolean))];
+  const edges = new Set(), via = new Set();
+  const out = (id) => state.edges.filter((e) => e.from === id && !e.loop).map((e) => e.to);
+  const seq = path.steps.map((x) => x.stageId).filter(Boolean);
+  for (let i = 0; i < seq.length - 1; i++) {
+    const [a, b] = [seq[i], seq[i + 1]];
+    if (a === b) continue;
+    const prev = new Map([[a, null]]); const queue = [a];
+    while (queue.length && !prev.has(b)) {
+      const cur = queue.shift();
+      for (const n of out(cur)) if (!prev.has(n)) { prev.set(n, cur); queue.push(n); }
+    }
+    if (!prev.has(b)) continue;
+    for (let n = b; prev.get(n); n = prev.get(n)) {
+      edges.add(`${prev.get(n)}>${n}`);
+      if (prev.get(n) !== a && !listed.includes(prev.get(n))) via.add(prev.get(n));
+    }
+  }
+  return { edges, via };
 }

@@ -1,6 +1,6 @@
 // Registros operacionais: base real dos indicadores (orçamentos, locações, entregas, pendências, equipamentos).
 // Intencionalmente sem valores financeiros e sem dados pessoais: use uma identificação curta (ex.: "Obra Rua X").
-import { el, confirmDialog, fmtDate } from './dom.js';
+import { el, render, confirmDialog, fmtDate } from './dom.js';
 import { openForm, options } from './form.js';
 import { RECORD_KINDS, RECORD_STATUSES } from '../data/seed.js';
 import { byId, personName } from '../state/logic.js';
@@ -32,7 +32,7 @@ export const recordLine = (s, r) =>
 export function renderRecords(host, { store, kindFilter, onFilter, onOpenStage }) {
   const s = store.get();
   const list = s.records.filter((r) => !kindFilter || r.kind === kindFilter);
-  host.replaceChildren(
+  render(host,
     el('div', { class: 'view-head' },
       el('div', {}, el('h2', { text: 'Registros operacionais' }),
         el('p', { class: 'muted', text: 'Estes registros alimentam os indicadores do topo. Nada foi pré-cadastrado: o painel só conta o que você registrar.' })),

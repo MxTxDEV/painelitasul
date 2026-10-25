@@ -85,7 +85,7 @@ test('migração v1 → v2 preserva dados do usuário e reposiciona o layout pad
   v1.employees.push({ id: 'e1', name: 'Fulano', stageIds: ['s4'] });
   const storage = fakeStorage(); storage.setItem(STORAGE_KEY, JSON.stringify(v1));
   const s = createStore({ storage }).get();
-  assert.equal(s.version, 2); assert.deepEqual(s.records, []);
+  assert.equal(s.version, 3); assert.deepEqual(s.records, []);
   assert.equal(s.tasks[0].title, 'Minha tarefa'); assert.equal(s.employees[0].name, 'Fulano');
   const seed4 = SEED_STAGES.find((x) => x.id === 's4');
   const st4 = s.stages.find((x) => x.id === 's4');
@@ -102,7 +102,7 @@ test('importação aceita arquivo antigo sem "records" e rejeita versão futura'
 });
 
 test('layout padrão: cartões sem sobreposição e setas sem cruzamento nem passagem por cima de cartões', () => {
-  const W = 260, H = 140, st = new Map(SEED_STAGES.map((s) => [s.id, s]));
+  const W = 260, H = 164, st = new Map(SEED_STAGES.map((s) => [s.id, s]));
   const c = (s) => [s.x + W / 2, s.y + H / 2];
   const rect = (s) => ({ l: s.x, r: s.x + W, t: s.y, b: s.y + H });
   const list = SEED_STAGES;

@@ -23,16 +23,22 @@ export function append(n, ...kids) {
   return n;
 }
 
+// Substitui o conteúdo de `host` ignorando null/undefined/false (o replaceChildren nativo escreveria "null" na tela).
+export const render = (host, ...kids) => append(clear(host), ...kids);
 export const clear = (n) => { n.replaceChildren(); return n; };
 
 export const fmtDate = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
 export const fmtDateTime = (iso) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
 let toastTimer;
-export function toast(msg, isError = false) {
+const TOAST = { success: ['✔', 'success'], error: ['✖ Erro:', 'error'], info: ['ℹ', ''] };
+// kind: 'success' | 'error' | 'info' (ou true = erro, por compatibilidade). Ícone e rótulo acompanham a cor.
+export function toast(msg, kind = 'info') {
+  const k = kind === true ? 'error' : kind === false ? 'info' : kind;
+  const [icon, cls] = TOAST[k] || TOAST.info;
   const t = document.getElementById('toast');
-  t.textContent = msg; t.className = `toast show${isError ? ' error' : ''}`;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast'; }, 3500);
+  t.textContent = `${icon} ${msg}`; t.className = `toast show ${cls}`;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast'; }, k === 'error' ? 6000 : 3500);
 }
 
 export function confirmDialog(message) {

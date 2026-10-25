@@ -1,5 +1,5 @@
 // Visão "Equipe e Responsabilidades". Nenhuma hierarquia é pré-cadastrada: só o que o usuário informar.
-import { el, confirmDialog } from './dom.js';
+import { el, render, confirmDialog } from './dom.js';
 import { openForm, options } from './form.js';
 import { SECTORS } from '../data/seed.js';
 import { byId, personName, stagesOf, employeeTasks, employeeRoles, isOverdue, handoffList } from '../state/logic.js';
@@ -66,7 +66,7 @@ export function renderTeam(host, { store, onOpenStage, onOpenRoutine }) {
   const ctx = { onOpenStage, onOpenRoutine };
   const orphan = s.tasks.filter((t) => !t.ownerId && t.status !== 'Concluída');
   const hand = handoffList(s);
-  host.replaceChildren(
+  render(host,
     el('div', { class: 'view-head' },
       el('div', {}, el('h2', { text: 'Equipe e Responsabilidades' }),
         el('p', { class: 'muted', text: 'A hierarquia abaixo reflete apenas as relações de coordenação que você cadastrar. Nada foi presumido.' })),

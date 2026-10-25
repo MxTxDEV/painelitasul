@@ -1,8 +1,8 @@
 // Mapa operacional: nós HTML + arestas SVG dentro de um canvas com pan/zoom.
 import { el, clear } from './dom.js';
-import { byId, personName, stageIssues, stageMatches, isHandoff, stageWaiting, stageProgress } from '../state/logic.js';
+import { byId, personName, stageIssues, stageMatches, isHandoff, stageWaiting, edgeWaiting, pathRoute } from '../state/logic.js';
 
-const NODE_W = 260, NODE_H = 140;
+const NODE_W = 260, NODE_H = 164;
 const view = { x: 20, y: 10, k: 0.8 };
 let fitted = false;
 
@@ -31,9 +31,11 @@ const svgEl = (tag, attrs = {}) => {
 };
 
 export function renderMap(host, { state, filters, selectedId, pathId, onSelect }) {
+  const focusId = host.contains(document.activeElement) ? document.activeElement.dataset?.stage : null;
   clear(host);
   const path = state.paths.find((p) => p.id === pathId) || null;
   const pathIds = new Set(path?.steps.map((s) => s.stageId).filter(Boolean));
+  const route = path ? pathRoute(state, path) : null;
   const stepNums = {};
   path?.steps.forEach((s, i) => { if (s.stageId) (stepNums[s.stageId] ||= []).push(i + 1); });
 
@@ -51,10 +53,10 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     const a = byId(state.stages, e.from), b = byId(state.stages, e.to);
     if (!a || !b) continue;
     const g = anchor(a, b);
-    const hl = path && pathIds.has(a.id) && pathIds.has(b.id);
+    const hl = Boolean(route?.edges.has(`${a.id}>${b.id}`));
     const handoff = isHandoff(state, e);
     const dim = (path && !hl) || (!path && false);
-    const p = svgEl('path', { d: edgePath(g), class: `edge${hl ? ' hl' : ''}${a.kind !== 'branch' && stageProgress(state, a.id).state === 'em-aberto' ? ' wait' : ''}${dim ? ' dim' : ''}${a.kind === 'branch' || b.kind === 'branch' ? ' branch' : ''}`, 'marker-end': `url(#${hl ? 'arrow-hl' : 'arrow'})` });
+    const p = svgEl('path', { d: edgePath(g), class: `edge${hl ? ' hl' : ''}${edgeWaiting(state, e) ? ' wait' : ''}${dim ? ' dim' : ''}${a.kind === 'branch' || b.kind === 'branch' ? ' branch' : ''}`, 'marker-end': `url(#${hl ? 'arrow-hl' : 'arrow'})` });
     svg.append(p);
     if (handoff) {
       const mx = (g.s[0] + g.t[0]) / 2, my = (g.s[1] + g.t[1]) / 2;
@@ -69,10 +71,10 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     const iss = stageIssues(state, s);
     const waiting = stageWaiting(state, s.id);
     const match = stageMatches(state, s, filters);
-    const inPath = !path || pathIds.has(s.id);
+    const inPath = !path || pathIds.has(s.id) || route.via.has(s.id);
     const node = el('button', {
       type: 'button', 'data-stage': s.id, 'data-testid': `node-${s.id}`,
-      class: `node ${s.kind}${s.id === selectedId ? ' selected' : ''}${match && inPath ? '' : ' dim'}${path && pathIds.has(s.id) ? ' in-path' : ''}${iss.noOwner ? ' no-owner' : ''}${waiting.length ? ' waiting' : ''}`,
+      class: `node ${s.kind}${s.id === selectedId ? ' selected' : ''}${match && inPath ? '' : ' dim'}${path && pathIds.has(s.id) ? ' in-path' : ''}${iss.noOwner ? ' no-owner' : ''}${iss.blocked ? ' blocked' : ''}${waiting.length ? ' waiting' : ''}${route?.via.has(s.id) ? ' via' : ''}`,
       style: `left:${s.x}px;top:${s.y}px;width:${NODE_W}px;height:${NODE_H}px`,
       'aria-label': `${s.num ? `Etapa ${s.num}: ` : 'Ramal: '}${s.name}`,
       onClick: (ev) => { ev.stopPropagation(); onSelect(s.id); },
@@ -80,23 +82,34 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
       el('span', { class: 'node-top' },
         el('span', { class: 'badge-num', text: s.num ?? 'R' }),
         el('span', { class: 'chip', text: s.sector }),
+        route?.via.has(s.id) && el('span', { class: 'chip', title: 'O caminho passa por esta etapa', text: 'passa por aqui' }),
+        s.kind === 'branch' && el('span', { class: 'chip', text: 'Ramal' }),
         stepNums[s.id] && el('span', { class: 'step-badge', title: 'Posição no caminho selecionado', text: `#${stepNums[s.id].join(',')}` })),
       el('span', { class: 'node-name', text: s.name }),
       el('span', { class: 'node-foot' },
         el('span', { class: `owner${iss.noOwner ? ' undefined' : ''}`, text: iss.noOwner ? '⚠ Responsável: A definir' : personName(state, s.ownerId) }),
         waiting.length > 0 && el('span', { class: 'alert wait', title: `Aguardando conclusão de: ${waiting.map((w) => w.from.name).join(', ')}`, text: `⏳ aguarda ${waiting.length}` }),
         iss.open > 0 && el('span', { class: 'alert open', title: 'Tarefas abertas', text: `${iss.open} aberta${iss.open > 1 ? 's' : ''}` }),
-        iss.overdue > 0 && el('span', { class: 'alert late', title: 'Tarefas atrasadas', text: `${iss.overdue} atrasada${iss.overdue > 1 ? 's' : ''}` }),
-        iss.blocked > 0 && el('span', { class: 'alert block', title: 'Tarefas bloqueadas', text: `${iss.blocked} bloq.` })));
+        iss.overdue > 0 && el('span', { class: 'alert late', title: 'Tarefas atrasadas', text: `⚠ ${iss.overdue} atrasada${iss.overdue > 1 ? 's' : ''}` }),
+        iss.blocked > 0 && el('span', { class: 'alert block', title: 'Tarefas bloqueadas', text: `⛔ ${iss.blocked} bloq.` })));
     canvas.append(node);
   }
   host.append(canvas);
 
   const apply = () => { canvas.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`; };
+  const ensureVisible = (st) => {
+    const r = host.getBoundingClientRect(), pad = 24;
+    const l = view.x + st.x * view.k, t = view.y + st.y * view.k, rr = l + NODE_W * view.k, b = t + NODE_H * view.k;
+    if (l < pad) view.x += pad - l; else if (rr > r.width - pad) view.x -= rr - (r.width - pad);
+    if (t < pad) view.y += pad - t; else if (b > r.height - pad) view.y -= b - (r.height - pad);
+    apply();
+  };
+  const selSt = byId(state.stages, selectedId);
   const fit = () => {
     const r = host.getBoundingClientRect();
-    view.k = Math.min(1, Math.max(0.3, Math.min(r.width / maxX, r.height / maxY)));
-    view.x = (r.width - maxX * view.k) / 2; view.y = 8; apply();
+    view.k = Math.min(1, Math.max(0.5, Math.min(r.width / maxX, r.height / maxY))); // não encolhe abaixo de 50% para manter a leitura
+    view.x = Math.max(8, (r.width - maxX * view.k) / 2); view.y = 8; apply();
+    if (selSt) ensureVisible(selSt); // com o painel aberto o mapa fica estreito: mantém a etapa selecionada à vista
   };
   if (!fitted) { fit(); fitted = true; } else apply();
   host.__fit = fit;
@@ -106,6 +119,23 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     view.x = cx - (cx - view.x) * f; view.y = cy - (cy - view.y) * f; view.k = k; apply();
   };
   host.__zoom = (f) => { const r = host.getBoundingClientRect(); zoomAt(f, r.width / 2, r.height / 2); };
+
+  // Navegação por teclado: setas movem o foco para o cartão mais próximo naquela direção.
+  canvas.addEventListener('keydown', (ev) => {
+    const dir = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] }[ev.key];
+    const cur = byId(state.stages, ev.target.dataset?.stage);
+    if (!dir || !cur) return;
+    let best = null, bestScore = Infinity;
+    for (const c of state.stages) {
+      const dx = c.x - cur.x, dy = c.y - cur.y, along = dx * dir[0] + dy * dir[1], across = Math.abs(dx * dir[1]) + Math.abs(dy * dir[0]);
+      if (c === cur || along <= 0) continue;
+      const score = along + across * 2;
+      if (score < bestScore) { best = c; bestScore = score; }
+    }
+    if (best) { ev.preventDefault(); canvas.querySelector(`[data-stage="${best.id}"]`)?.focus({ preventScroll: true }); ensureVisible(best); }
+  });
+  canvas.addEventListener('focusin', (ev) => { const st = byId(state.stages, ev.target.dataset?.stage); if (st) ensureVisible(st); });
+  if (focusId) canvas.querySelector(`[data-stage="${focusId}"]`)?.focus({ preventScroll: true });
 
   host.onwheel = (ev) => { ev.preventDefault(); const r = host.getBoundingClientRect(); zoomAt(ev.deltaY < 0 ? 1.1 : 0.9, ev.clientX - r.left, ev.clientY - r.top); };
   let drag = null;

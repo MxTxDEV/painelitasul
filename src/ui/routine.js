@@ -1,5 +1,5 @@
 // "Rotina diária": tarefas de cada funcionário por dia, com filtros pendentes/concluídas/atrasadas/bloqueadas.
-import { el, fmtDate } from './dom.js';
+import { el, render, fmtDate } from './dom.js';
 import { taskRow, taskForm } from './tasks.js';
 import { routineItems, ROUTINE_GROUPS, todayISO, personName } from '../state/logic.js';
 
@@ -17,7 +17,7 @@ export function renderRoutine(host, { store, routine, onChange, onOpenStage }) {
   const who = routine.person === '__none' ? 'sem responsável (A definir)' : routine.person ? personName(s, routine.person) : 'todos os funcionários';
   const presetOwner = routine.person && routine.person !== '__none' ? routine.person : null;
 
-  host.replaceChildren(
+  render(host,
     el('div', { class: 'view-head' },
       el('div', {}, el('h2', { text: 'Rotina diária' }),
         el('p', { class: 'muted', text: 'Consulte as tarefas de cada funcionário por dia. Tarefas só aparecem aqui se tiverem responsável e prazo cadastrados — nada é atribuído automaticamente.' })),
