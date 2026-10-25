@@ -1,20 +1,22 @@
 import { createStore } from './state/store.js';
-import { computeIndicators, EMPTY_FILTERS, hasFilters, stageMatches, stageIssues, personName, byId, isOverdue } from './state/logic.js';
+import { todayISO, computeIndicators, EMPTY_FILTERS, hasFilters, stageMatches, stageIssues, personName, byId, isOverdue } from './state/logic.js';
 import { SECTORS, STATUSES, PRIORITIES, METRIC_DEFS } from './data/seed.js';
 import { el, append, clear, toast, confirmDialog, fmtDate } from './ui/dom.js';
 import { openForm, options } from './ui/form.js';
 import { renderMap, mapControls } from './ui/map.js';
-import { renderPanel, taskForm, stageForm } from './ui/panel.js';
+import { renderPanel, stageForm } from './ui/panel.js';
+import { taskForm } from './ui/tasks.js';
 import { renderTeam } from './ui/team.js';
 import { renderImprovements } from './ui/improvements.js';
 import { renderRecords, recordForm, recordLine } from './ui/records.js';
+import { renderRoutine } from './ui/routine.js';
 
 let storage = null;
 try { storage = window.localStorage; storage.getItem('x'); } catch { storage = null; }
 const store = createStore({ storage });
 if (!storage) setTimeout(() => toast('Armazenamento do navegador indisponível: alterações não serão salvas. Use Exportar.', true), 300);
 
-const ui = { view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', layout: window.matchMedia('(max-width: 760px)').matches ? 'lista' : 'mapa' };
+const ui = { view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, layout: window.matchMedia('(max-width: 760px)').matches ? 'lista' : 'mapa' };
 const $ = (id) => document.getElementById(id);
 
 function renderIndicators() {
@@ -26,7 +28,7 @@ function renderIndicators() {
     return tile(i, () => showItems(i), i.value > 0 && d.key === 'tasksOverdue' ? ' hot' : '');
   });
   const ex = ind.extra;
-  const extra = [['open', 'extra-open'], ['blocked', 'extra-blocked'], ['noOwner', 'extra-noowner'], ['problems', 'extra-problems']].map(([k, key]) =>
+  const extra = [['open', 'extra-open'], ['blocked', 'extra-blocked'], ['noOwner', 'extra-noowner'], ['waiting', 'extra-waiting'], ['problems', 'extra-problems']].map(([k, key]) =>
     tile({ ...ex[k], key }, () => showItems(ex[k]), (k === 'noOwner' && ex[k].value > 0) || (k === 'blocked' && ex[k].value > 0) ? ' hot' : ''));
   $('kpis').replaceChildren(...main, ...extra);
 }
@@ -126,7 +128,8 @@ function render() {
     ui.wasOpen = panelOpen;
   } else {
     document.body.classList.remove('panel-open'); $('panel').hidden = true;
-    if (ui.view === 'equipe') renderTeam($('view-equipe'), { store, onOpenStage: (id) => open(id) });
+    if (ui.view === 'equipe') renderTeam($('view-equipe'), { store, onOpenStage: (id) => open(id), onOpenRoutine: (id) => { ui.routine.person = id; ui.view = 'rotina'; render(); } });
+    if (ui.view === 'rotina') renderRoutine($('view-rotina'), { store, routine: ui.routine, onChange: (p) => { Object.assign(ui.routine, p); render(); }, onOpenStage: (id) => open(id, 'tarefas') });
     if (ui.view === 'registros') renderRecords($('view-registros'), { store, kindFilter: ui.recFilter, onFilter: (v) => { ui.recFilter = v; render(); }, onOpenStage: (id) => open(id) });
     if (ui.view === 'melhorias') renderImprovements($('view-melhorias'), { store, statusFilter: ui.impFilter, onFilter: (v) => { ui.impFilter = v; render(); } });
   }

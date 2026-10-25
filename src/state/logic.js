@@ -115,11 +115,74 @@ export function computeIndicators(state, today = todayISO()) {
   const blocked = state.tasks.filter((t) => t.status === 'Bloqueada');
   const stagesNoOwner = state.stages.filter((s) => !s.ownerId);
   const withProblems = state.stages.filter((s) => s.problems.length);
+  const waitingStages = state.stages.filter((st) => stageWaiting(state, st.id).length);
   res.extra = {
     open: { label: 'Tarefas pendentes', value: state.tasks.length ? open.length : null, tasks: open },
     blocked: { label: 'Processos bloqueados', value: state.tasks.length ? blocked.length : null, tasks: blocked },
     noOwner: { label: 'Etapas sem responsável', value: stagesNoOwner.length, stages: stagesNoOwner },
+    waiting: { label: 'Etapas aguardando etapa anterior', value: state.tasks.length ? waitingStages.length : null, stages: waitingStages },
     problems: { label: 'Problemas operacionais registrados', value: withProblems.length ? withProblems.reduce((n, s) => n + s.problems.length, 0) : null, stages: withProblems },
   };
   return res;
+}
+
+// ---------- Progresso, dependências e transferências ----------
+// Uma etapa só é "concluída" quando tem tarefas e todas estão concluídas. Sem tarefas não dá para afirmar nada.
+export function stageProgress(state, stageId) {
+  const t = stageTasks(state, stageId);
+  const open = t.filter((x) => x.status !== 'Concluída').length;
+  return { total: t.length, open, done: t.length - open, state: !t.length ? 'sem-tarefas' : open ? 'em-aberto' : 'concluida' };
+}
+
+// Dependências = ligações que chegam na etapa. Ramais (kind "branch") são opcionais e não geram alerta.
+export function dependencies(state, stageId) {
+  return state.edges.filter((e) => e.to === stageId).map((e) => {
+    const from = byId(state.stages, e.from);
+    if (!from) return null;
+    const progress = stageProgress(state, from.id);
+    const optional = from.kind === 'branch';
+    return { from, progress, optional, handoff: from.sector !== byId(state.stages, stageId)?.sector, waiting: !optional && progress.state === 'em-aberto' };
+  }).filter(Boolean);
+}
+
+export const stageWaiting = (state, stageId) => dependencies(state, stageId).filter((d) => d.waiting);
+
+export function handoffList(state) {
+  return state.edges.map((e) => {
+    const from = byId(state.stages, e.from), to = byId(state.stages, e.to);
+    return from && to && from.sector !== to.sector ? { edge: e, from, to, progress: stageProgress(state, from.id), waiting: from.kind !== 'branch' && stageProgress(state, from.id).state === 'em-aberto' } : null;
+  }).filter(Boolean);
+}
+
+// ---------- Equipe e rotina ----------
+export const employeeTasks = (state, id) => state.tasks.filter((t) => t.ownerId === id);
+
+export function employeeRoles(state, id) {
+  const e = byId(state.employees, id);
+  return state.stages.map((s) => {
+    const roles = [];
+    if (s.ownerId === id) roles.push('Responsável principal');
+    if (s.substituteId === id) roles.push('Substituto');
+    if (!roles.length && (e?.stageIds || []).includes(s.id)) roles.push('Participa');
+    return roles.length ? { stage: s, roles } : null;
+  }).filter(Boolean);
+}
+
+export const ROUTINE_GROUPS = [['pendentes', 'Pendentes'], ['concluidas', 'Concluídas'], ['atrasadas', 'Atrasadas'], ['bloqueadas', 'Bloqueadas']];
+const GROUP_TEST = {
+  pendentes: (t) => t.status !== 'Concluída',
+  concluidas: (t) => t.status === 'Concluída',
+  atrasadas: (t, today) => isOverdue(t, today),
+  bloqueadas: (t) => t.status === 'Bloqueada',
+};
+
+// person: '' = todos · '__none' = sem responsável (A definir) · id. groups vazio = sem filtro.
+export function routineItems(state, { person = '', day, groups = [] }, today = todayISO()) {
+  const pass = (t) => !groups.length || groups.some((g) => GROUP_TEST[g](t, today));
+  const mine = state.tasks.filter((t) => (!person || (person === '__none' ? !t.ownerId : t.ownerId === person)) && pass(t));
+  return {
+    day: mine.filter((t) => t.due === day),
+    carried: mine.filter((t) => t.due && t.due < day && t.status !== 'Concluída'),
+    undated: mine.filter((t) => !t.due),
+  };
 }

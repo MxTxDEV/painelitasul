@@ -69,7 +69,7 @@ try {
   });
   await t('editar status da tarefa para Bloqueada e concluir', async () => {
     await page.click('[data-testid="task-row"] button:has-text("Editar")');
-    await page.selectOption('dialog select >> nth=2', 'Bloqueada');
+    await page.selectOption('dialog label:has-text("Status") select', 'Bloqueada');
     await page.click('dialog button[type=submit]');
     assert.match(await page.locator('[data-kpi="extra-blocked"]').innerText(), /^1\b/);
     await page.click('[data-testid="task-row"] button:has-text("Concluir")');

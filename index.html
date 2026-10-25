@@ -12,6 +12,7 @@
     <nav class="views" role="tablist" aria-label="Visões">
       <button type="button" role="tab" data-view="mapa" class="vtab">Mapa do processo</button>
       <button type="button" role="tab" data-view="equipe" class="vtab">Equipe e Responsabilidades</button>
+      <button type="button" role="tab" data-view="rotina" class="vtab">Rotina diária</button>
       <button type="button" role="tab" data-view="registros" class="vtab">Registros</button>
       <button type="button" role="tab" data-view="melhorias" class="vtab">Central de Melhorias</button>
     </nav>
@@ -40,7 +41,7 @@
         </div>
       </div>
       <div id="paths" class="paths"></div>
-      <div class="legend"><span><i class="lg lg-noowner"></i> Sem responsável (A definir)</span><span><i class="lg lg-handoff"></i> Transferência entre setores</span><span><i class="lg lg-dash"></i> Ramal específico</span><span class="muted">Fluxo = hipótese inicial, editável. Arraste para mover, role para dar zoom.</span></div>
+      <div class="legend"><span><i class="lg lg-noowner"></i> Sem responsável (A definir)</span><span><i class="lg lg-handoff"></i> Transferência entre setores</span><span><i class="lg lg-dash"></i> Ramal específico</span><span><i class="lg lg-wait"></i> Etapa anterior ainda em aberto (⏳)</span><span class="muted">Fluxo = hipótese inicial, editável. Arraste para mover, role para dar zoom.</span></div>
       <div class="stage">
         <div id="map" class="map" aria-label="Mapa do processo de locação"></div>
         <div id="stage-list" class="stage-list" hidden></div>
@@ -48,6 +49,7 @@
       </div>
     </div>
     <div id="view-equipe" class="view" hidden></div>
+    <div id="view-rotina" class="view" hidden></div>
     <div id="view-registros" class="view" hidden></div>
     <div id="view-melhorias" class="view" hidden></div>
   </main>

@@ -140,3 +140,11 @@ section { margin-top: 14px; }
 .task.done { opacity: .75; border-left-color: #2e7d32; } .task.done strong { text-decoration: line-through; }
 .list li.warn { color: #7a5b00; font-weight: 600; } .list li.late { color: var(--red); font-weight: 600; }
 .vtab { white-space: nowrap; }
+.routine-bar { margin: 8px 0; align-items: flex-end; }
+.daynav { display: flex; gap: 6px; align-items: flex-end; } .daynav input { width: auto; }
+.groups { display: flex; gap: 6px; flex-wrap: wrap; }
+tr.waiting td { background: var(--warn-bg); }
+.node.waiting { border-color: #b8860b; }
+.alert.wait { background: #b8860b; }
+.edge.wait { stroke: #b8860b; stroke-dasharray: 3 5; }
+.legend .lg-wait { border-top: 3px dotted #b8860b; height: 0; width: 18px; border-radius: 0; }

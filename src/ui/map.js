@@ -1,6 +1,6 @@
 // Mapa operacional: nós HTML + arestas SVG dentro de um canvas com pan/zoom.
 import { el, clear } from './dom.js';
-import { byId, personName, stageIssues, stageMatches, isHandoff } from '../state/logic.js';
+import { byId, personName, stageIssues, stageMatches, isHandoff, stageWaiting, stageProgress } from '../state/logic.js';
 
 const NODE_W = 260, NODE_H = 140;
 const view = { x: 20, y: 10, k: 0.8 };
@@ -54,7 +54,7 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     const hl = path && pathIds.has(a.id) && pathIds.has(b.id);
     const handoff = isHandoff(state, e);
     const dim = (path && !hl) || (!path && false);
-    const p = svgEl('path', { d: edgePath(g), class: `edge${hl ? ' hl' : ''}${dim ? ' dim' : ''}${a.kind === 'branch' || b.kind === 'branch' ? ' branch' : ''}`, 'marker-end': `url(#${hl ? 'arrow-hl' : 'arrow'})` });
+    const p = svgEl('path', { d: edgePath(g), class: `edge${hl ? ' hl' : ''}${a.kind !== 'branch' && stageProgress(state, a.id).state === 'em-aberto' ? ' wait' : ''}${dim ? ' dim' : ''}${a.kind === 'branch' || b.kind === 'branch' ? ' branch' : ''}`, 'marker-end': `url(#${hl ? 'arrow-hl' : 'arrow'})` });
     svg.append(p);
     if (handoff) {
       const mx = (g.s[0] + g.t[0]) / 2, my = (g.s[1] + g.t[1]) / 2;
@@ -67,11 +67,12 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
   const canvas = el('div', { class: 'canvas', style: `width:${maxX}px;height:${maxY}px` }, svg);
   for (const s of state.stages) {
     const iss = stageIssues(state, s);
+    const waiting = stageWaiting(state, s.id);
     const match = stageMatches(state, s, filters);
     const inPath = !path || pathIds.has(s.id);
     const node = el('button', {
       type: 'button', 'data-stage': s.id, 'data-testid': `node-${s.id}`,
-      class: `node ${s.kind}${s.id === selectedId ? ' selected' : ''}${match && inPath ? '' : ' dim'}${path && pathIds.has(s.id) ? ' in-path' : ''}${iss.noOwner ? ' no-owner' : ''}`,
+      class: `node ${s.kind}${s.id === selectedId ? ' selected' : ''}${match && inPath ? '' : ' dim'}${path && pathIds.has(s.id) ? ' in-path' : ''}${iss.noOwner ? ' no-owner' : ''}${waiting.length ? ' waiting' : ''}`,
       style: `left:${s.x}px;top:${s.y}px;width:${NODE_W}px;height:${NODE_H}px`,
       'aria-label': `${s.num ? `Etapa ${s.num}: ` : 'Ramal: '}${s.name}`,
       onClick: (ev) => { ev.stopPropagation(); onSelect(s.id); },
@@ -83,6 +84,7 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
       el('span', { class: 'node-name', text: s.name }),
       el('span', { class: 'node-foot' },
         el('span', { class: `owner${iss.noOwner ? ' undefined' : ''}`, text: iss.noOwner ? '⚠ Responsável: A definir' : personName(state, s.ownerId) }),
+        waiting.length > 0 && el('span', { class: 'alert wait', title: `Aguardando conclusão de: ${waiting.map((w) => w.from.name).join(', ')}`, text: `⏳ aguarda ${waiting.length}` }),
         iss.open > 0 && el('span', { class: 'alert open', title: 'Tarefas abertas', text: `${iss.open} aberta${iss.open > 1 ? 's' : ''}` }),
         iss.overdue > 0 && el('span', { class: 'alert late', title: 'Tarefas atrasadas', text: `${iss.overdue} atrasada${iss.overdue > 1 ? 's' : ''}` }),
         iss.blocked > 0 && el('span', { class: 'alert block', title: 'Tarefas bloqueadas', text: `${iss.blocked} bloq.` })));
