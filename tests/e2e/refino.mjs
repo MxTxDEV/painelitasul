@@ -99,7 +99,7 @@ try {
   await t('mapa: roda do mouse e botões fazem zoom com limites; Ajustar restaura; cartões seguem cliclávies em qualquer zoom', async () => {
     const p = await newPage(); await p.goto(url);
     const k = () => p.locator('.canvas').evaluate((n) => Number(n.style.transform.match(/scale\(([\d.]+)\)/)[1]));
-    const k0 = await k(); const box = await p.locator('#map').boundingBox(); await p.mouse.move(box.x + 400, box.y + 300);
+    const k0 = await k(); await p.evaluate(() => window.scrollTo(0, document.querySelector('#map').offsetTop - 70)); const box = await p.locator('#map').boundingBox(); await p.mouse.move(box.x + 400, box.y + 300);
     await p.mouse.wheel(0, -300); await p.waitForTimeout(50); const kIn = await k(); assert.ok(kIn > k0, 'roda para cima aproxima');
     await p.mouse.wheel(0, 600); await p.waitForTimeout(50); assert.ok(await k() < kIn, 'roda para baixo afasta');
     for (let i = 0; i < 25; i++) await p.click('#zoom-in'); assert.ok(await k() <= 2.0001, 'limite máximo 200%');

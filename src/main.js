@@ -4,6 +4,8 @@ import { SECTORS, STATUSES, PRIORITIES, METRIC_DEFS } from './data/seed.js';
 import { el, append, clear, toast, confirmDialog, fmtDate } from './ui/dom.js';
 import { openForm, options } from './ui/form.js';
 import { renderMap, mapControls } from './ui/map.js';
+import { renderList, renderTimeline, renderBoard } from './ui/views.js';
+import { MODES, isCanvas, isMode } from './state/layouts.js';
 import { renderPanel, stageForm } from './ui/panel.js';
 import { taskForm } from './ui/tasks.js';
 import { renderTeam } from './ui/team.js';
@@ -17,8 +19,10 @@ try { storage = window.localStorage; storage.getItem('x'); } catch { storage = n
 const store = createStore({ storage });
 if (!storage) setTimeout(() => toast('Armazenamento do navegador indisponível: alterações não serão salvas. Use Exportar.', 'error'), 300);
 
+const MODE_KEY = 'itasul-forma';
+const savedMode = () => { try { const v = window.localStorage.getItem(MODE_KEY); return isMode(v) ? v : null; } catch { return null; } };
 const isNarrow = window.matchMedia('(max-width: 760px)').matches;
-const ui = { kpiOpen: { oper: !isNarrow, gestao: !isNarrow }, view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, layout: window.matchMedia('(max-width: 1100px)').matches ? 'lista' : 'mapa' };
+const ui = { kpiOpen: { oper: !isNarrow, gestao: !isNarrow }, view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, mode: savedMode() || (window.matchMedia('(max-width: 1100px)').matches ? 'lista' : 'mapa'), prevMode: 'mapa' };
 const $ = (id) => document.getElementById(id);
 
 // Tom do indicador: nunca só cor — sempre acompanhado de ícone e rótulo ("Atenção", "Crítico", "Em dia", "Sem dados").
@@ -101,15 +105,10 @@ function renderPaths() {
     path && pathRoute(s, path).via.size ? el('p', { class: 'muted small path-hint', 'data-testid': 'path-hint', text: `Etapas com a marca "passa por aqui" (${[...pathRoute(s, path).via].map((id) => byId(s.stages, id)?.name).join('; ')}) são atravessadas pelo fluxo geral entre dois passos deste caminho. Ajuste as ligações se não se aplicarem.` }) : null);
 }
 
-function renderList() {
-  const s = store.get(), host = $('stage-list');
-  host.replaceChildren(...s.stages.map((st) => {
-    const iss = stageIssues(s, st), match = stageMatches(s, st, ui.filters);
-    return el('button', { type: 'button', class: `list-card${match ? '' : ' dim'}${iss.noOwner ? ' no-owner' : ''}`, 'data-stage': st.id, onClick: () => open(st.id) },
-      el('span', { class: 'badge-num', text: st.num ?? 'R' }),
-      el('span', { class: 'lc-main' }, el('strong', { text: st.name }), el('small', { class: 'muted', text: `${st.sector} · ${iss.noOwner ? '⚠ Responsável: A definir' : personName(s, st.ownerId)}` })),
-      iss.overdue > 0 && el('span', { class: 'alert late', text: `${iss.overdue} atrasada(s)` }));
-  }));
+function setMode(m) { ui.mode = m; try { window.localStorage.setItem(MODE_KEY, m); } catch { /* sem armazenamento: vale só nesta sessão */ } render(); }
+function renderModes() {
+  append(clear($('modes')), el('span', { class: 'lbl', text: 'Forma do mapa:' }), MODES.map(([id, label]) =>
+    el('button', { type: 'button', class: `seg${ui.mode === id ? ' active' : ''}`, 'data-mode': id, 'aria-pressed': String(ui.mode === id), text: label, onClick: () => setMode(id) })));
 }
 
 function open(stageId, tab = 'resumo') { ui.view = 'mapa'; ui.selected = stageId; ui.tab = tab; render(); }
@@ -128,7 +127,7 @@ function renderPanelNow() {
 }
 
 function render() {
-  const focusStage = document.activeElement?.classList?.contains('list-card') ? document.activeElement.dataset.stage : null;
+  const focusStage = document.activeElement?.closest?.('#stage-list') ? document.activeElement.dataset.stage : null;
   $('boot')?.remove();
   if (ui.selected && !byId(store.get().stages, ui.selected)) ui.selected = null;
   document.querySelectorAll('[data-view]').forEach((b) => { const on = b.dataset.view === ui.view; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); });
@@ -136,11 +135,18 @@ function render() {
   renderIndicators();
   if (ui.view === 'mapa') {
     renderFilters(); renderPaths();
-    const asMap = ui.layout === 'mapa';
+    const asMap = isCanvas(ui.mode);
+    renderModes();
     $('map').hidden = !asMap; $('stage-list').hidden = asMap; $('map-tools').hidden = !asMap;
-    $('layout-toggle').textContent = asMap ? 'Ver como lista' : 'Ver como mapa';
-    if (asMap) renderMap($('map'), { state: store.get(), filters: ui.filters, selectedId: ui.selected, pathId: ui.pathId, onSelect: (id) => open(id) });
-    else { renderList(); if (focusStage) $('stage-list').querySelector(`[data-stage="${focusStage}"]`)?.focus({ preventScroll: true }); }
+    $('layout-toggle').textContent = ui.mode === 'lista' ? 'Ver como mapa' : 'Ver como lista';
+    const opts = { state: store.get(), filters: ui.filters, selectedId: ui.selected, pathId: ui.pathId, onSelect: (id) => open(id) };
+    if (asMap) { clear($('stage-list')); renderMap($('map'), { ...opts, mode: ui.mode }); }
+    else {
+      clear($('map'));
+      const host = $('stage-list'); host.className = `stage-list mode-${ui.mode}`;
+      ({ timeline: renderTimeline, setores: renderBoard }[ui.mode] || renderList)(host, opts);
+      if (focusStage) host.querySelector(`[data-stage="${focusStage}"]`)?.focus({ preventScroll: true });
+    }
     renderPanelNow();
     const panelOpen = Boolean(ui.selected);
     if (asMap && (panelOpen !== ui.wasOpen || ui.selected !== ui.lastSel)) $('map').__fit?.(false); // painel abre/fecha ou outra etapa: reenquadra/centraliza
@@ -159,7 +165,7 @@ function render() {
 document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { ui.view = b.dataset.view; render(); }));
 const mc = mapControls($('map'));
 $('zoom-in').onclick = mc.zoomIn; $('zoom-out').onclick = mc.zoomOut; $('zoom-fit').onclick = mc.fit;
-$('layout-toggle').onclick = () => { ui.layout = ui.layout === 'mapa' ? 'lista' : 'mapa'; render(); };
+$('layout-toggle').onclick = () => { if (ui.mode === 'lista') setMode(ui.prevMode || 'mapa'); else { ui.prevMode = ui.mode; setMode('lista'); } };
 $('add-stage').onclick = () => stageForm(store, null);
 $('map').addEventListener('click', () => {
   if ($('map').__moved) { $('map').__moved = false; return; } // foi um arrasto, não um clique

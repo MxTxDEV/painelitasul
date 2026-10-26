@@ -1,21 +1,22 @@
 // Mapa operacional: nós HTML + arestas SVG dentro de um canvas com pan/zoom.
 import { el, clear } from './dom.js';
-import { NODE_W, NODE_H } from '../data/seed.js';
+import { computeLayout } from '../state/layouts.js';
 import { byId, personName, stageIssues, stageMatches, isHandoff, stageWaiting, edgeWaiting, pathRoute } from '../state/logic.js';
 
 const view = { x: 20, y: 10, k: 0.8 };
-let fitted = false;
+let fitted = false, lastMode = null;
 
-function anchor(a, b) {
-  const dy = b.y - a.y;
-  if (Math.abs(dy) < 20) {
-    return b.x > a.x
-      ? { s: [a.x + NODE_W, a.y + NODE_H / 2], t: [b.x, b.y + NODE_H / 2], h: true }
-      : { s: [a.x, a.y + NODE_H / 2], t: [b.x + NODE_W, b.y + NODE_H / 2], h: true };
+// Pontos de ligação entre dois cartões (a, b = cantos superiores esquerdos; n = tamanho do cartão).
+function anchor(a, b, n) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if (Math.abs(dy) < 20 || Math.abs(dx) > Math.abs(dy) * 1.2) {
+    return dx > 0
+      ? { s: [a.x + n.w, a.y + n.h / 2], t: [b.x, b.y + n.h / 2], h: true }
+      : { s: [a.x, a.y + n.h / 2], t: [b.x + n.w, b.y + n.h / 2], h: true };
   }
   return dy > 0
-    ? { s: [a.x + NODE_W / 2, a.y + NODE_H], t: [b.x + NODE_W / 2, b.y] }
-    : { s: [a.x + NODE_W / 2, a.y], t: [b.x + NODE_W / 2, b.y + NODE_H] };
+    ? { s: [a.x + n.w / 2, a.y + n.h], t: [b.x + n.w / 2, b.y] }
+    : { s: [a.x + n.w / 2, a.y], t: [b.x + n.w / 2, b.y + n.h] };
 }
 
 function edgePath({ s, t, h }) {
@@ -30,7 +31,7 @@ const svgEl = (tag, attrs = {}) => {
   return n;
 };
 
-export function renderMap(host, { state, filters, selectedId, pathId, onSelect }) {
+export function renderMap(host, { state, filters, selectedId, pathId, onSelect, mode = 'mapa' }) {
   const focusId = host.contains(document.activeElement) ? document.activeElement.dataset?.stage : null;
   clear(host);
   const path = state.paths.find((p) => p.id === pathId) || null;
@@ -39,8 +40,9 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
   const stepNums = {};
   path?.steps.forEach((s, i) => { if (s.stageId) (stepNums[s.stageId] ||= []).push(i + 1); });
 
-  const maxX = Math.max(...state.stages.map((s) => s.x)) + NODE_W + 40;
-  const maxY = Math.max(...state.stages.map((s) => s.y)) + NODE_H + 40;
+  const L = computeLayout(state, mode), N = L.node, P = (st) => L.pos[st.id];
+  const maxX = L.size.w, maxY = L.size.h;
+  if (mode !== lastMode) { fitted = false; lastMode = mode; }   // trocou a forma do mapa: reenquadra
 
   const svg = svgEl('svg', { class: 'edges', width: maxX, height: maxY, 'aria-hidden': 'true' });
   const defs = svgEl('defs');
@@ -52,7 +54,7 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
   for (const e of state.edges) {
     const a = byId(state.stages, e.from), b = byId(state.stages, e.to);
     if (!a || !b) continue;
-    const g = anchor(a, b);
+    const g = anchor(P(a), P(b), N);
     const hl = Boolean(route?.edges.has(`${a.id}>${b.id}`));
     const handoff = isHandoff(state, e);
     const dim = (path && !hl) || (!path && false);
@@ -66,7 +68,8 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     }
   }
 
-  const canvas = el('div', { class: 'canvas', style: `width:${maxX}px;height:${maxY}px` }, svg);
+  const canvas = el('div', { class: 'canvas', 'data-mode': mode, style: `width:${maxX}px;height:${maxY}px` },
+    L.decor.map((b) => el('div', { class: b.cls, 'aria-hidden': 'true', style: `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px` }, el('span', { class: `${b.cls}-label`, text: b.label }))), svg);
   for (const s of state.stages) {
     const iss = stageIssues(state, s);
     const waiting = stageWaiting(state, s.id);
@@ -74,15 +77,15 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     const inPath = !path || pathIds.has(s.id) || route.via.has(s.id);
     const node = el('button', {
       type: 'button', 'data-stage': s.id, 'data-testid': `node-${s.id}`,
-      class: `node ${s.kind}${s.id === selectedId ? ' selected' : ''}${match && inPath ? '' : ' dim'}${path && pathIds.has(s.id) ? ' in-path' : ''}${iss.noOwner ? ' no-owner' : ''}${iss.blocked ? ' blocked' : ''}${waiting.length ? ' waiting' : ''}${route?.via.has(s.id) ? ' via' : ''}`,
-      style: `left:${s.x}px;top:${s.y}px;width:${NODE_W}px;height:${NODE_H}px`,
+      class: `node ${s.kind}${N.compact ? ' compact' : ''}${s.id === selectedId ? ' selected' : ''}${match && inPath ? '' : ' dim'}${path && pathIds.has(s.id) ? ' in-path' : ''}${iss.noOwner ? ' no-owner' : ''}${iss.blocked ? ' blocked' : ''}${waiting.length ? ' waiting' : ''}${route?.via.has(s.id) ? ' via' : ''}`,
+      style: `left:${P(s).x}px;top:${P(s).y}px;width:${N.w}px;height:${N.h}px`,
       'aria-label': `${s.num ? `Etapa ${s.num}: ` : 'Ramal: '}${s.name}`,
       onClick: (ev) => { ev.stopPropagation(); onSelect(s.id); },
     },
       el('span', { class: 'node-top' },
         el('span', { class: 'badge-num', text: s.num ?? 'R' }),
-        el('span', { class: 'chip', text: s.sector }),
-        route?.via.has(s.id) && el('span', { class: 'chip', title: 'O caminho passa por esta etapa', text: 'passa por aqui' }),
+        el('span', { class: 'chip sec', text: s.sector }),
+        route?.via.has(s.id) && el('span', { class: 'chip', title: 'O caminho passa por esta etapa', text: N.compact ? 'via' : 'passa por aqui' }),
         s.kind === 'branch' && el('span', { class: 'chip', text: 'Ramal' }),
         stepNums[s.id] && el('span', { class: 'step-badge', title: 'Posição no caminho selecionado', text: `#${stepNums[s.id].join(',')}` })),
       el('span', { class: 'node-name', text: s.name }),
@@ -99,7 +102,7 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
   const apply = () => { canvas.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`; };
   const ensureVisible = (st) => {
     const r = host.getBoundingClientRect(), pad = 24;
-    const l = view.x + st.x * view.k, t = view.y + st.y * view.k, rr = l + NODE_W * view.k, b = t + NODE_H * view.k;
+    const l = view.x + P(st).x * view.k, t = view.y + P(st).y * view.k, rr = l + N.w * view.k, b = t + N.h * view.k;
     if (l < pad) view.x += pad - l; else if (rr > r.width - pad) view.x -= rr - (r.width - pad);
     if (t < pad) view.y += pad - t; else if (b > r.height - pad) view.y -= b - (r.height - pad);
     apply();
@@ -109,12 +112,13 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
   // mantém o zoom legível (≥ 78%) e centraliza a etapa selecionada. Sem seleção: enquadra tudo sem passar de 60% para baixo.
   const fit = (all = false) => {
     const r = host.getBoundingClientRect();
-    const whole = Math.min(r.width / maxX, r.height / maxY);
+    const whole = L.fit === 'tall' ? Math.min(r.width / maxX, Math.max(r.height / maxY, 0.62)) : Math.min(r.width / maxX, r.height / maxY);   // 'tall' (árvore): prioriza a leitura e deixa rolar na vertical
+    const minK = mode === 'mapa' ? 0.6 : L.fit === 'tall' ? 0.62 : 0.42;
     if (selSt && !all) {
       view.k = Math.min(1, Math.max(whole, 0.78));
-      view.x = r.width / 2 - (selSt.x + NODE_W / 2) * view.k; view.y = r.height / 2 - (selSt.y + NODE_H / 2) * view.k;
+      view.x = r.width / 2 - (P(selSt).x + N.w / 2) * view.k; view.y = r.height / 2 - (P(selSt).y + N.h / 2) * view.k;
     } else {
-      view.k = Math.min(1, Math.max(all ? 0.3 : 0.6, whole));
+      view.k = Math.min(1, Math.max(all ? 0.25 : minK, whole));
       view.x = Math.max(8, (r.width - maxX * view.k) / 2); view.y = 8;
     }
     apply();
@@ -135,7 +139,7 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect }
     if (!dir || !cur) return;
     let best = null, bestScore = Infinity;
     for (const c of state.stages) {
-      const dx = c.x - cur.x, dy = c.y - cur.y, along = dx * dir[0] + dy * dir[1], across = Math.abs(dx * dir[1]) + Math.abs(dy * dir[0]);
+      const dx = P(c).x - P(cur).x, dy = P(c).y - P(cur).y, along = dx * dir[0] + dy * dir[1], across = Math.abs(dx * dir[1]) + Math.abs(dy * dir[0]);
       if (c === cur || along <= 0) continue;
       const score = along + across * 2;
       if (score < bestScore) { best = c; bestScore = score; }

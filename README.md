@@ -31,6 +31,17 @@ Também funciona hospedado em qualquer servidor estático (GitHub Pages, Vercel 
   - Compatibilidade: um valor informado manualmente (versão anterior) continua valendo só enquanto não houver registros do tipo, e aparece marcado como manual.
 - **Filtros** por setor, responsável, status e prioridade (etapas que não casam ficam esmaecidas).
 
+## Formas do mapa
+Seletor **"Forma do mapa"** acima do mapa (a escolha fica salva neste navegador, chave `itasul-forma`). Todas usam os mesmos dados, filtros, caminhos, seleção, painel de detalhes, indicadores e tema — **trocar de forma não altera nenhum dado** (as posições gravadas só valem para a Serpentina; as demais são calculadas na hora).
+- **Serpentina** (padrão): fluxo em serpentina sem cruzamento de setas, cartões grandes.
+- **Raias por setor**: uma faixa por setor, o fluxo avança da esquerda para a direita (mostra quem entrega para quem).
+- **Árvore**: camadas de cima para baixo, setas longas desviam dos cartões intermediários.
+- **Circular**: etapas em círculo na ordem do fluxo, com o retorno 11→5 como corda.
+- **Linha do tempo**: lista vertical em ordem de fluxo; cada etapa mostra para onde segue, com ⇄ nas transferências entre setores e ↺ no retorno (os chips levam à etapa seguinte).
+- **Quadro por setor**: uma coluna por setor com resumo (etapas, tarefas abertas, atrasadas, sem responsável).
+- **Lista**: a lista simples de antes (abre por padrão em telas até 1100 px, se não houver escolha salva).
+O botão "Ver como lista/mapa" continua alternando com a última forma usada. As formas de mapa têm zoom, arrastar, "Ajustar" e navegação por setas; com o painel aberto, a etapa selecionada é centralizada em zoom legível.
+
 ## Mapa: leitura, zoom e teclado
 - Cartões 288×184 com texto grande; em 1280–1920 px o mapa inteiro cabe na tela com nome ≥ 14 px, rodapé ≥ 11 px e selos ≥ 10,5 px renderizados. Até 1100 px o painel abre em **lista** (o mapa continua disponível pelo botão).
 - Com o painel aberto, o mapa centraliza a etapa selecionada em zoom ≥ 78 %; **Ajustar** mostra o mapa inteiro. Arrastar o fundo move o mapa e **não** fecha o painel; um clique simples no fundo fecha.
@@ -54,11 +65,13 @@ src/
   styles.css         identidade ITASUL (vermelho, preto, branco, cinza, amarelo discreto)
   data/seed.js       etapas, ligações, caminhos, ideias da IA (hipóteses editáveis)
   state/store.js     estado, persistência, CRUD, histórico, import/export
+  state/layouts.js   formas do mapa (raias, árvore, circular): posições calculadas, sem tocar nos dados
   state/logic.js     funções puras: atrasos, filtros, indicadores, transferências
-  ui/                dom.js (helpers) · form.js (modal) · map.js · panel.js · team.js · improvements.js · records.js
+  ui/                dom.js (helpers) · form.js (modal) · map.js · views.js (linha do tempo, quadro, lista) · panel.js · team.js · improvements.js · records.js
 tests/unit/          estado, lógica, migração e geometria do layout (node:test)
 tests/e2e/smoke.mjs  teste de interface em navegador real (fluxo geral)
 tests/e2e/gestao.mjs teste de interface: funcionários, tarefas, rotina, dependências, indicadores
+tests/e2e/formas.mjs  formas do mapa: 7 visões, seleção, filtros, caminhos, teclado, zoom/arrasto, persistência, contraste AA nos 2 temas, responsivo
 tests/e2e/refino.mjs  refinamento: legibilidade do mapa (px renderizados), cabeçalho/indicadores, arrasto/zoom/seleção, teclado, tema em todas as superfícies
   tests/e2e/helpers/contraste.mjs  verificador de contraste WCAG AA usado pelos roteiros
 tests/e2e/auditoria.mjs auditoria funcional + visual: 13 cartões, filtros, caminhos, tema, contraste WCAG AA nos 2 temas, responsividade (360–1920 px), teclado
