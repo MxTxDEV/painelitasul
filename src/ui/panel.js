@@ -99,7 +99,7 @@ export function renderPanel(host, { store, stageId, tab, onTab, onClose, onEditS
     const deps = dependencies(s, stage.id);
     return sec('Dependências e transferências de responsabilidade',
       deps.length ? el('ul', { class: 'list', 'data-testid': 'deps-list' }, deps.map((d) => el('li', { class: d.waiting ? 'late' : '', 'data-dep': d.from.id },
-        `Depende de "${d.from.name}" (${d.from.sector})${d.handoff ? ' ⇄ transferência entre setores' : ''}${d.optional ? ' — ramal opcional' : ''}: `,
+        `Depende de "${d.from.name}" (${d.from.sector})${d.handoff ? ' ⇄ transferência entre setores' : ''}: `,
         d.loop ? '↺ retorno do fluxo — informativo, não bloqueia esta etapa'
           : d.optional ? '○ ramal opcional — não bloqueia'
             : d.progress.state === 'concluida' ? '✔ etapa anterior concluída'

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>ITASUL OS — Comercial (composição)</title>
+<style>
+  :root { --red: #d3122f; --red2: #ff3b57; --amber: #f2c230; --ink: #f4f4f5; --g0: #0b0b0d; --g1: #151518; --g2: #1f1f23; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--g0); font-family: Inter, "Inter Display", system-ui, sans-serif; color: var(--ink); }
+  #stage { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--g0); }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  #bg { background: var(--g0); }
+  #glow1, #glow2 { position: absolute; border-radius: 50%; filter: blur(110px); }
+  #glow1 { width: 1100px; height: 1100px; background: radial-gradient(circle, rgba(211,18,47,.55), rgba(211,18,47,0) 65%); }
+  #glow2 { width: 900px; height: 900px; background: radial-gradient(circle, rgba(242,194,48,.14), rgba(242,194,48,0) 65%); }
+  #grid { position: absolute; inset: -200px; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px); background-size: 96px 96px; mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%); }
+  #particles { position: absolute; inset: 0; }
+  /* abertura */
+  #open { display: grid; place-items: center; }
+  #openline { position: absolute; left: 0; top: 540px; height: 3px; background: linear-gradient(90deg, transparent, var(--red2) 20%, #fff 50%, var(--red2) 80%, transparent); transform-origin: center; box-shadow: 0 0 24px 4px rgba(255,59,87,.7); }
+  #logo { display: flex; align-items: stretch; gap: 26px; position: absolute; left: 50%; top: 470px; transform-origin: center; }
+  #logo .blk { background: var(--red); color: #fff; font-weight: 900; font-size: 170px; letter-spacing: .1em; padding: 0 .28em 0 .38em; line-height: 1.12; border-radius: 10px; transform-origin: center; box-shadow: 0 30px 80px rgba(211,18,47,.45); }
+  #logo .os { font-weight: 800; font-size: 170px; line-height: 1.12; color: #fff; letter-spacing: .02em; }
+  #opensub { position: absolute; left: 0; width: 100%; top: 690px; text-align: center; font-weight: 500; font-size: 36px; color: #c9c9ce; text-transform: uppercase; }
+  /* caos */
+  #chaos { }
+  .chip { position: absolute; left: 0; top: 0; padding: 14px 26px; border-radius: 14px; background: rgba(255,255,255,.07); border: 1.5px solid rgba(255,255,255,.18); font-weight: 600; font-size: 30px; white-space: nowrap; backdrop-filter: blur(4px); }
+  .chip.hot { border-color: rgba(255,59,87,.6); background: rgba(211,18,47,.18); }
+  #words { position: absolute; left: 130px; top: 160px; }
+  .word { display: block; font-weight: 900; font-size: 128px; line-height: 1.02; letter-spacing: -.01em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+  .word span { display: inline-block; }
+  #allonce { position: absolute; left: 0; width: 100%; top: 430px; text-align: center; font-weight: 900; font-size: 132px; letter-spacing: -.02em; text-transform: uppercase; white-space: nowrap; }
+  #allonce .bar { display: inline-block; background: var(--red); color: #fff; padding: 0 .3em; border-radius: 10px; }
+  #question { position: absolute; left: 0; width: 100%; top: 140px; text-align: center; font-weight: 800; font-size: 84px; letter-spacing: -.01em; }
+  #question em { font-style: normal; color: var(--red2); }
+  /* app */
+  #camwrap { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; perspective: 2400px; }
+  #cam { position: absolute; left: 0; top: 0; width: 1600px; height: 936px; transform-origin: 0 0; }
+  #win { position: absolute; inset: 0; border-radius: 18px; overflow: hidden; background: #000; box-shadow: 0 60px 140px rgba(0,0,0,.65), 0 0 0 1.5px rgba(255,255,255,.14), 0 0 90px rgba(211,18,47,.25); }
+  #bar { position: absolute; left: 0; top: 0; width: 100%; height: 36px; background: #1b1b1f; display: flex; align-items: center; gap: 9px; padding: 0 16px; border-bottom: 1px solid #2c2c31; }
+  #bar i { width: 12px; height: 12px; border-radius: 50%; background: #3a3a40; display: block; } #bar i:nth-child(1) { background: #d3122f; } #bar i:nth-child(2) { background: #f2c230; }
+  #bar b { margin: 0 auto; transform: translateX(-30px); font-weight: 500; font-size: 14px; color: #9b9ba3; background: #131316; padding: 3px 60px; border-radius: 8px; }
+  #app { position: absolute; left: 0; top: 36px; width: 1600px; height: 900px; border: 0; background: #111; }
+  #callouts { position: absolute; left: 0; top: 0; width: 1600px; height: 936px; }
+  .callout { position: absolute; transform-origin: 0 0; white-space: nowrap; font-weight: 700; font-size: 26px; padding: 11px 20px; border-radius: 12px; background: var(--amber); color: #1a1500; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  .callout.red { background: var(--red); color: #fff; }
+  .callout::after { content: ""; position: absolute; width: 14px; height: 14px; background: inherit; transform: rotate(45deg); left: 24px; bottom: -7px; }
+  .ring { position: absolute; border: 4px solid var(--amber); border-radius: 16px; box-shadow: 0 0 0 6px rgba(242,194,48,.18), 0 0 30px rgba(242,194,48,.5); }
+  .ring.red { border-color: var(--red2); box-shadow: 0 0 0 6px rgba(255,59,87,.18), 0 0 30px rgba(255,59,87,.5); }
+  /* legendas */
+  #cap.layer { top: auto; bottom: 58px; height: auto; text-align: center; }
+  #cap .t { display: inline-block; font-weight: 800; font-size: 54px; letter-spacing: -.01em; padding: 12px 34px 14px; border-radius: 16px; background: rgba(11,11,13,.78); backdrop-filter: blur(10px); border: 1.5px solid rgba(255,255,255,.12); }
+  #cap .t em { font-style: normal; color: var(--red2); }
+  /* pilares */
+  #pillars { display: flex; gap: 40px; position: absolute; left: 130px; right: 130px; top: 250px; }
+  .pillar { flex: 1; background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)); border: 1.5px solid rgba(255,255,255,.14); border-radius: 26px; padding: 54px 44px; height: 560px; position: relative; overflow: hidden; }
+  .pillar svg { width: 150px; height: 150px; fill: none; stroke: var(--red2); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+  .pillar h3 { font-weight: 900; font-size: 64px; line-height: 1.04; margin-top: 40px; letter-spacing: -.02em; }
+  .pillar p { margin-top: 24px; font-size: 30px; line-height: 1.35; color: #c0c0c7; font-weight: 500; }
+  .pillar .n { position: absolute; right: 36px; top: 24px; font-weight: 900; font-size: 120px; color: rgba(255,255,255,.06); }
+  #pilltitle { position: absolute; left: 130px; top: 110px; font-weight: 800; font-size: 62px; letter-spacing: -.01em; }
+  /* encerramento */
+  #outro { display: grid; place-items: center; }
+  #logo2 { position: absolute; left: 50%; top: 330px; display: flex; gap: 26px; transform-origin: center; }
+  #logo2 .blk { background: var(--red); color: #fff; font-weight: 900; font-size: 150px; letter-spacing: .1em; padding: 0 .28em 0 .38em; line-height: 1.12; border-radius: 10px; box-shadow: 0 30px 80px rgba(211,18,47,.45); }
+  #logo2 .os { font-weight: 800; font-size: 150px; line-height: 1.12; letter-spacing: .02em; }
+  #tag { position: absolute; left: 0; width: 100%; top: 590px; text-align: center; font-weight: 900; font-size: 112px; letter-spacing: -.025em; }
+  #tag em { font-style: normal; color: var(--red2); }
+  #cta { position: absolute; left: 0; width: 100%; top: 780px; text-align: center; font-weight: 600; font-size: 38px; color: #d4d4d9; letter-spacing: .12em; text-transform: uppercase; }
+  #cta b { color: var(--amber); font-weight: 800; }
+  #disc { position: absolute; left: 0; width: 100%; bottom: 36px; text-align: center; font-size: 20px; color: #7d7d86; letter-spacing: .04em; }
+  /* efeitos */
+  #vig { background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.62) 100%); }
+  #flash { background: #fff; opacity: 0; }
+  #redflash { background: var(--red); opacity: 0; mix-blend-mode: screen; }
+  #grain { inset: -100px; opacity: .07; mix-blend-mode: overlay; background-size: 220px 220px; }
+  #fade { background: #000; opacity: 0; }
+  #wipe { background: #fff; clip-path: circle(0px at 50% 50%); opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="layer" id="bg"><div id="glow1"></div><div id="glow2"></div><div id="grid"></div><canvas id="particles" width="1920" height="1080"></canvas></div>
+
+  <div class="layer" id="chaos"><div id="chips"></div>
+    <div id="words"></div><div id="allonce"><span class="bar">TUDO</span> AO MESMO TEMPO.</div><div id="question">E se tudo estivesse <em>num só mapa</em>?</div></div>
+
+  <div id="camwrap"><div id="cam"><div id="win"><div id="bar"><i></i><i></i><i></i><b>ITASUL OS · Painel Visual de Gestão</b></div><iframe id="app" src="/index.html"></iframe></div><div id="callouts"></div></div></div>
+
+  <div class="layer" id="pillarsL"><div id="pilltitle">Feito para a operação real.</div><div id="pillars"></div></div>
+  <div class="layer" id="open"><div id="openline"></div><div id="logo"><div class="blk">ITASUL</div><div class="os">OS</div></div><div id="opensub">Painel Visual de Gestão</div></div>
+  <div class="layer" id="outro"><div id="logo2"><div class="blk">ITASUL</div><div class="os">OS</div></div><div id="tag">Comande a <em>operação.</em></div><div id="cta">Locação · Caçambas · Munck · Manutenção &nbsp;—&nbsp; <b>tudo no mesmo mapa</b></div><div id="disc">Imagens ilustrativas com dados de demonstração. Nenhum número exibido representa resultados reais.</div></div>
+  <div id="cap" class="layer"></div>
+  <div class="layer" id="vig"></div><div class="layer" id="grain"></div><div class="layer" id="wipe"></div><div class="layer" id="flash"></div><div class="layer" id="redflash"></div><div class="layer" id="fade"></div>
+</div>
+<script src="compose.js"></script>
+</body>
+</html>
