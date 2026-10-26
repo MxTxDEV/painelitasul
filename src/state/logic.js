@@ -219,3 +219,13 @@ export function pathRoute(state, path) {
   }
   return { edges, via };
 }
+
+// Ativação em cascata: distância (em ligações) de uma etapa até cada etapa a jusante, ignorando retornos. { id: n } (a própria etapa = 0).
+export function downstream(state, startId) {
+  const dist = { [startId]: 0 }, q = [startId];
+  while (q.length) {
+    const c = q.shift();
+    for (const e of state.edges) if (e.from === c && !e.loop && !(e.to in dist)) { dist[e.to] = dist[c] + 1; q.push(e.to); }
+  }
+  return dist;
+}

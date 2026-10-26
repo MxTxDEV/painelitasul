@@ -7,9 +7,9 @@ const S = createInitialState();
 const CANVAS = MODES.filter((m) => m[2] === 'canvas').map((m) => m[0]);
 const overlap = (a, b, n) => !(a.x + n.w <= b.x || b.x + n.w <= a.x || a.y + n.h <= b.y || b.y + n.h <= a.y);
 
-test('modos: 4 em canvas (serpentina, raias, árvore, circular) e 3 em HTML (linha do tempo, quadro por setor, lista)', () => {
+test('modos: 4 em canvas (serpentina, raias, árvore, circular) e 4 em HTML (linha do tempo, quadro por setor, matriz, lista)', () => {
   assert.deepEqual(CANVAS, ['mapa', 'raias', 'arvore', 'circulo']);
-  assert.deepEqual(MODES.filter((m) => !isCanvas(m[0])).map((m) => m[0]), ['timeline', 'setores', 'lista']);
+  assert.deepEqual(MODES.filter((m) => !isCanvas(m[0])).map((m) => m[0]), ['timeline', 'setores', 'matriz', 'lista']);
 });
 
 test('camadas: respeitam as ligações (exceto o retorno 11→5)', () => {

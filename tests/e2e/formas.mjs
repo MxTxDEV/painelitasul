@@ -13,7 +13,7 @@ const browser = await chromium.launch();
 const falhas = []; let step = '';
 const t = async (name, fn) => { step = name; try { await fn(); console.log(`ok  ${name}`); } catch (e) { falhas.push(name); console.log(`XX  ${name}\n      ${String(e.message).split('\n')[0]}`); } };
 const newPage = async (o = {}) => { const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...o }); const p = await c.newPage(); p.errors = []; p.on('pageerror', (e) => p.errors.push(e.message)); p.on('console', (m) => m.type() === 'error' && p.errors.push(m.text())); return p; };
-const MODES = ['mapa', 'raias', 'arvore', 'circulo', 'timeline', 'setores', 'lista'], CANVAS = ['mapa', 'raias', 'arvore', 'circulo'];
+const MODES = ['mapa', 'raias', 'arvore', 'circulo', 'timeline', 'setores', 'matriz', 'lista'], CANVAS = ['mapa', 'raias', 'arvore', 'circulo'];
 const seed = (p) => p.evaluate(() => { const st = window.__itasul.store, d = (n) => new Date(Date.now() + n * 864e5).toLocaleDateString('sv');
   const a = st.addEmployee({ name: 'Func. Teste A', sector: 'Comercial' }); st.updateStage('s4', { ownerId: a.id });
   st.addTask({ stageId: 's3', title: 'Aberta s3', ownerId: a.id, due: d(-2) }); st.addTask({ stageId: 's4', title: 'Bloqueada s4', ownerId: a.id, status: 'Bloqueada', priority: 'Alta' }); st.addTask({ stageId: 's7', title: 'Aberta s7' }); });
@@ -21,7 +21,7 @@ const pick = async (p, m) => { await p.click(`[data-mode="${m}"]`); assert.equal
 const visibleCount = (p, sel) => p.locator(sel).evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 0).length);
 
 try {
-  await t('seletor "Forma do mapa": 7 opções, uma ativa (aria-pressed), padrão = Serpentina no desktop', async () => {
+  await t('seletor "Forma do mapa": 8 opções, uma ativa (aria-pressed), padrão = Serpentina no desktop', async () => {
     const p = await newPage(); await p.goto(url);
     assert.deepEqual(await p.locator('#modes [data-mode]').evaluateAll((b) => b.map((x) => x.dataset.mode)), MODES);
     assert.equal(await p.locator('#modes [aria-pressed="true"]').count(), 1); assert.equal(await p.locator('#modes [data-mode="mapa"]').getAttribute('aria-pressed'), 'true');

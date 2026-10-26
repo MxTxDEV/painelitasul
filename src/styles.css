@@ -163,7 +163,7 @@ input::placeholder, textarea::placeholder { color: var(--text-2); }
 .alert { font-size: .74rem; padding: 1px 8px; border-radius: 999px; background: var(--red); color: var(--on-red); font-weight: 700; }
 .alert.open { background: var(--surface-3); color: var(--text); } .alert.block { background: var(--red); } .alert.wait { background: var(--amber-solid); color: #2a2000; }
 
-.stage-list { flex: 1; display: grid; gap: 8px; }
+.stage-list { flex: 1; min-width: 0; display: grid; gap: 8px; }
 .list-card { display: flex; gap: 10px; align-items: center; text-align: left; background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--chrome); border-radius: 8px; padding: 10px; cursor: pointer; color: var(--text); }
 :root[data-theme="escuro"] .list-card { border-left-color: var(--line-strong); }
 .list-card.no-owner { border-left-color: var(--amber-line); background: var(--amber-bg); } .list-card.dim { background: var(--surface-2); color: var(--text-2); }
@@ -286,3 +286,103 @@ option, optgroup { background: var(--surface); color: var(--text); }
 .board-cards .list-card { width: 100%; flex-wrap: wrap; }
 @media (max-width: 760px) { .modes .lbl { width: 100%; } .modes .seg { padding: 5px 11px; font-size: .85rem; } .lane-label { width: 110px; font-size: 1rem; } }
 .board-cards .lc-main { flex: 1 1 58%; min-width: 150px; }
+
+/* ---------- cores por setor (identidade em todas as formas do mapa) ---------- */
+.sec-marketing { --sec: #7e22ce; --sec-fill: #7e22ce; --sec-on: #ffffff; --sec-soft: rgba(126,34,206,.12); --sec-glow: rgba(126,34,206,.6); }
+.sec-atendimento { --sec: #1d63d1; --sec-fill: #1d63d1; --sec-on: #ffffff; --sec-soft: rgba(29,99,209,.12); --sec-glow: rgba(29,99,209,.6); }
+.sec-comercial { --sec: #0f7b4a; --sec-fill: #0f7b4a; --sec-on: #ffffff; --sec-soft: rgba(15,123,74,.12); --sec-glow: rgba(15,123,74,.6); }
+.sec-operacao { --sec: #c2570c; --sec-fill: #c2570c; --sec-on: #ffffff; --sec-soft: rgba(194,87,12,.12); --sec-glow: rgba(194,87,12,.6); }
+.sec-financeiro { --sec: #0e7490; --sec-fill: #0e7490; --sec-on: #ffffff; --sec-soft: rgba(14,116,144,.12); --sec-glow: rgba(14,116,144,.6); }
+.sec-manutencao { --sec: #4d7c0f; --sec-fill: #4d7c0f; --sec-on: #ffffff; --sec-soft: rgba(77,124,15,.12); --sec-glow: rgba(77,124,15,.6); }
+.sec-posvenda { --sec: #be185d; --sec-fill: #be185d; --sec-on: #ffffff; --sec-soft: rgba(190,24,93,.12); --sec-glow: rgba(190,24,93,.6); }
+.sec-x0 { --sec: #0369a1; --sec-fill: #0369a1; --sec-on: #ffffff; --sec-soft: rgba(3,105,161,.12); --sec-glow: rgba(3,105,161,.6); }
+.sec-x1 { --sec: #a16207; --sec-fill: #a16207; --sec-on: #ffffff; --sec-soft: rgba(161,98,7,.12); --sec-glow: rgba(161,98,7,.6); }
+.sec-x2 { --sec: #475569; --sec-fill: #475569; --sec-on: #ffffff; --sec-soft: rgba(71,85,105,.12); --sec-glow: rgba(71,85,105,.6); }
+.sec-x3 { --sec: #0d9488; --sec-fill: #0d9488; --sec-on: #ffffff; --sec-soft: rgba(13,148,136,.12); --sec-glow: rgba(13,148,136,.6); }
+.sec-x4 { --sec: #c026d3; --sec-fill: #c026d3; --sec-on: #ffffff; --sec-soft: rgba(192,38,211,.12); --sec-glow: rgba(192,38,211,.6); }
+.sec-x5 { --sec: #7c2d12; --sec-fill: #7c2d12; --sec-on: #ffffff; --sec-soft: rgba(124,45,18,.12); --sec-glow: rgba(124,45,18,.6); }
+:root[data-theme="escuro"] .sec-marketing { --sec: #c084fc; --sec-fill: #c084fc; --sec-on: #0f0f11; --sec-soft: rgba(192,132,252,.17); --sec-glow: rgba(192,132,252,.65); }
+:root[data-theme="escuro"] .sec-atendimento { --sec: #60a5fa; --sec-fill: #60a5fa; --sec-on: #0f0f11; --sec-soft: rgba(96,165,250,.17); --sec-glow: rgba(96,165,250,.65); }
+:root[data-theme="escuro"] .sec-comercial { --sec: #4ade80; --sec-fill: #4ade80; --sec-on: #0f0f11; --sec-soft: rgba(74,222,128,.17); --sec-glow: rgba(74,222,128,.65); }
+:root[data-theme="escuro"] .sec-operacao { --sec: #fb923c; --sec-fill: #fb923c; --sec-on: #0f0f11; --sec-soft: rgba(251,146,60,.17); --sec-glow: rgba(251,146,60,.65); }
+:root[data-theme="escuro"] .sec-financeiro { --sec: #22d3ee; --sec-fill: #22d3ee; --sec-on: #0f0f11; --sec-soft: rgba(34,211,238,.17); --sec-glow: rgba(34,211,238,.65); }
+:root[data-theme="escuro"] .sec-manutencao { --sec: #a3e635; --sec-fill: #a3e635; --sec-on: #0f0f11; --sec-soft: rgba(163,230,53,.17); --sec-glow: rgba(163,230,53,.65); }
+:root[data-theme="escuro"] .sec-posvenda { --sec: #f472b6; --sec-fill: #f472b6; --sec-on: #0f0f11; --sec-soft: rgba(244,114,182,.17); --sec-glow: rgba(244,114,182,.65); }
+:root[data-theme="escuro"] .sec-x0 { --sec: #38bdf8; --sec-fill: #38bdf8; --sec-on: #0f0f11; --sec-soft: rgba(56,189,248,.17); --sec-glow: rgba(56,189,248,.65); }
+:root[data-theme="escuro"] .sec-x1 { --sec: #facc15; --sec-fill: #facc15; --sec-on: #0f0f11; --sec-soft: rgba(250,204,21,.17); --sec-glow: rgba(250,204,21,.65); }
+:root[data-theme="escuro"] .sec-x2 { --sec: #94a3b8; --sec-fill: #94a3b8; --sec-on: #0f0f11; --sec-soft: rgba(148,163,184,.17); --sec-glow: rgba(148,163,184,.65); }
+:root[data-theme="escuro"] .sec-x3 { --sec: #2dd4bf; --sec-fill: #2dd4bf; --sec-on: #0f0f11; --sec-soft: rgba(45,212,191,.17); --sec-glow: rgba(45,212,191,.65); }
+:root[data-theme="escuro"] .sec-x4 { --sec: #e879f9; --sec-fill: #e879f9; --sec-on: #0f0f11; --sec-soft: rgba(232,121,249,.17); --sec-glow: rgba(232,121,249,.65); }
+:root[data-theme="escuro"] .sec-x5 { --sec: #d6a98c; --sec-fill: #d6a98c; --sec-on: #0f0f11; --sec-soft: rgba(214,169,140,.17); --sec-glow: rgba(214,169,140,.65); }
+
+.node { border-left-color: var(--sec, var(--chrome)); }
+:root[data-theme="escuro"] .node, :root[data-theme="escuro"] .list-card { border-left-color: var(--sec, var(--line-strong)); }
+.badge-num { background: var(--sec-fill, var(--chrome)); color: var(--sec-on, var(--chrome-text)); border-color: transparent; }
+.chip.sec { background: var(--sec-soft, var(--surface-3)); box-shadow: inset 0 0 0 1.5px var(--sec, transparent); }
+.list-card { border-left-color: var(--sec, var(--chrome)); }
+.board-col { border-top-color: var(--sec, var(--red)); }
+.canvas > .lane { border-left: 6px solid var(--sec, var(--line-strong)); }
+.lane-label { border-left-color: var(--sec, var(--red)); }
+.tl-dot { border-color: var(--sec, var(--red)); background: var(--sec-soft, var(--surface)); }
+.tl-item.branch .tl-dot { border-style: dashed; }
+
+/* legenda de setores (também filtra) */
+.sector-legend { display: flex; gap: 6px 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 2px; }
+.sec-chip { display: inline-flex; align-items: center; gap: 7px; border: 1.5px solid var(--sec, var(--line-strong)); background: var(--sec-soft, var(--surface)); color: var(--text); border-radius: 999px; padding: 3px 12px 3px 8px; font-size: .88rem; cursor: pointer; }
+.sec-chip::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--sec-fill); }
+.sec-chip:hover { background: var(--sec-fill); color: var(--sec-on); }
+.sec-chip[aria-pressed="true"] { background: var(--sec-fill); color: var(--sec-on); font-weight: 700; }
+.sec-chip[aria-pressed="true"]::after { content: "✓"; }
+
+/* ---------- animação "cérebro": neurônios disparam em onda, sinais viajam pelas sinapses ---------- */
+.toggle-anim[aria-pressed="true"] { background: var(--red); color: var(--on-red); border-color: var(--red); font-weight: 700; }
+.synapses { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.syn-line { fill: none; stroke: var(--line-strong); stroke-width: 1.2; opacity: .4; }
+.syn-dot { fill: var(--text-2); opacity: .2; animation: twinkle 5s ease-in-out infinite; animation-delay: var(--sd, 0s); }
+@keyframes twinkle { 0%, 100% { opacity: .12; } 50% { opacity: .85; } }
+.canvas.brain .edge { stroke: var(--sec, var(--edge)); stroke-opacity: .9; }
+.canvas.brain .edge.hl { stroke: var(--red-text); stroke-opacity: 1; }
+.canvas.brain .edge.wait { stroke: var(--edge-wait); }
+.a-sec { fill: var(--sec, var(--edge)); }
+.pulse { fill: var(--sec-fill, var(--red)); stroke: var(--surface); stroke-width: 1.5; filter: drop-shadow(0 0 5px var(--sec-glow, var(--ring))); pointer-events: none; }
+.pulse.strong { filter: drop-shadow(0 0 9px var(--sec-glow, var(--ring))); }
+.canvas.brain .node::before, .canvas.brain .node::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; }
+.canvas.brain .node::before { box-shadow: inset 0 0 0 3px var(--sec, var(--red)), inset 0 0 30px 2px var(--sec-glow, var(--ring)); animation: neuron 7s linear infinite; animation-delay: calc(var(--nd, 0) * .55s); }
+.canvas.brain .node.waiting::before { box-shadow: inset 0 0 0 3px var(--edge-wait), inset 0 0 26px 2px rgba(240, 192, 48, .45); animation-duration: 4.4s; }
+.canvas.brain .node.blocked::before { box-shadow: inset 0 0 0 3px var(--red), inset 0 0 28px 3px rgba(255, 59, 87, .5); animation-duration: 2.2s; }
+@keyframes neuron { 0% { opacity: 0; } 3% { opacity: 1; } 16% { opacity: 0; } 100% { opacity: 0; } }
+.canvas.brain .node.cascade::after { box-shadow: inset 0 0 0 4px var(--sec-fill, var(--red)), inset 0 0 40px 6px var(--sec-glow, var(--ring)); animation: cascade 1.2s ease-out 2 both; animation-delay: calc(var(--cd, 0) * .38s); }
+@keyframes cascade { 0% { opacity: 0; } 22% { opacity: 1; } 100% { opacity: 0; } }
+.canvas.focusing .edge:not(.on) { opacity: .16; } .canvas.focusing .edge.on { stroke-width: 4.5; stroke-opacity: 1; }
+
+/* ---------- matriz setor × etapa ---------- */
+.stage-list.mode-matriz { display: block; }
+.matrix-wrap { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); max-height: calc(100vh - 140px); }
+table.matrix { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+.matrix th, .matrix td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 0; background: var(--surface); }
+.matrix thead th { position: sticky; top: 0; z-index: 3; background: var(--surface-2); color: var(--text); vertical-align: bottom; white-space: normal; font-weight: 600; min-width: 112px; max-width: 128px; }
+.matrix th.corner { left: 0; z-index: 5; min-width: 170px; }
+.matrix tbody th { position: sticky; left: 0; z-index: 2; background: var(--surface-2); color: var(--text); text-align: left; min-width: 170px; border-left: 8px solid var(--sec); padding: 10px 12px; }
+.matrix tbody th small { display: block; color: var(--text-2); font-weight: 500; margin-top: 3px; line-height: 1.35; }
+.mx-head { display: grid; gap: 4px; width: 100%; padding: 8px 8px 8px; text-align: left; background: transparent; border: 0; border-top: 5px solid var(--sec); cursor: pointer; font-size: .82rem; line-height: 1.25; }
+.mx-head:hover { background: var(--surface-3); } .mx-head.selected { box-shadow: inset 0 -4px 0 var(--red); } .mx-head.dim { background: var(--surface-2); color: var(--text-2); }
+.mx-head .badge-num { min-width: 24px; height: 24px; font-size: .8rem; }
+.mx-head .step-badge { font-size: .85rem; font-weight: 800; color: var(--red-text); }
+.mx-cell { display: grid; place-items: center; gap: 2px; width: 100%; min-height: 66px; padding: 6px; text-align: center; background: transparent; border: 0; font-size: .78rem; color: var(--text); cursor: pointer; line-height: 1.25; }
+.mx-cell.empty { cursor: default; } .mx-cell:not(.empty):hover { outline: 2px solid var(--sec, var(--line-strong)); outline-offset: -2px; }
+.mx-cell.executa { background: var(--sec-soft); box-shadow: inset 0 0 0 2px var(--sec); font-weight: 700; }
+.mx-cell.executa.noowner { background: var(--amber-bg); color: var(--amber-text); }
+.mx-cell .mk { font-size: 1.15rem; font-weight: 800; color: var(--text); line-height: 1; }
+.mx-cell.dim, .mx-cell.dim.executa { background: var(--surface-2); box-shadow: none; color: var(--text-2); } .mx-cell.dim .mk { color: var(--text-2); }
+.mx-cell.entrega, .mx-cell.recebe { background: repeating-linear-gradient(135deg, transparent 0 8px, var(--sec-soft) 8px 10px); }
+.matrix tfoot td, .matrix td.tot { font-size: .82rem; padding: 8px 10px; text-align: left; color: var(--text); background: var(--surface-2); min-width: 120px; }
+.mx-legend { display: flex; gap: 6px 18px; flex-wrap: wrap; margin: 8px 0; font-size: .85rem; align-items: center; }
+.mx-legend li { list-style: none; display: inline-flex; gap: 6px; align-items: center; } .mx-legend { padding: 0; }
+.mx-head .badge-num { justify-self: start; width: 26px; min-width: 26px; padding: 0; }
+.mx-head.in-path { box-shadow: inset 0 -4px 0 var(--red-text); } .mx-head.via { border-top-style: dashed; }
+@media (max-width: 960px) { .stage { align-items: stretch; } .stage-list, .map { width: 100%; max-width: 100%; } }
+.matrix-wrap { max-width: 100%; }
+
+/* a cor do setor tem prioridade na borda esquerda, mesmo em cartões sem responsável / bloqueados */
+.node.no-owner, .node.blocked, .node.waiting, .node.selected, .node.dim, .list-card.no-owner, .list-card.blocked, .list-card.dim { border-left-color: var(--sec, var(--chrome)); }
+.tl-item.branch .tl-dot { border-color: var(--sec, var(--edge)); }

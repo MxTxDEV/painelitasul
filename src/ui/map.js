@@ -1,7 +1,8 @@
 // Mapa operacional: nós HTML + arestas SVG dentro de um canvas com pan/zoom.
 import { el, clear } from './dom.js';
-import { computeLayout } from '../state/layouts.js';
-import { byId, personName, stageIssues, stageMatches, isHandoff, stageWaiting, edgeWaiting, pathRoute } from '../state/logic.js';
+import { computeLayout, depths } from '../state/layouts.js';
+import { sectorClass, sectorSlug } from './sectors.js';
+import { byId, personName, stageIssues, stageMatches, isHandoff, stageWaiting, edgeWaiting, pathRoute, downstream } from '../state/logic.js';
 
 const view = { x: 20, y: 10, k: 0.8 };
 let fitted = false, lastMode = null;
@@ -31,7 +32,22 @@ const svgEl = (tag, attrs = {}) => {
   return n;
 };
 
-export function renderMap(host, { state, filters, selectedId, pathId, onSelect, mode = 'mapa' }) {
+// Fundo neural decorativo (determinístico): pontos ligados aos vizinhos por curvas finas; cada ponto "pisca" em tempo próprio.
+function synapses(w, h) {
+  let seed = 17; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const n = Math.max(26, Math.min(80, Math.round((w * h) / 42000))), pts = Array.from({ length: n }, () => ({ x: rnd() * w, y: rnd() * h }));
+  const svg = svgEl('svg', { class: 'synapses', width: w, height: h, 'aria-hidden': 'true' });
+  pts.forEach((a, i) => {
+    pts.map((b, j) => ({ j, d: Math.hypot(a.x - b.x, a.y - b.y) })).filter((o) => o.j !== i).sort((p, q) => p.d - q.d).slice(0, 2).forEach(({ j }) => {
+      if (j < i) return; const b = pts[j], mx = (a.x + b.x) / 2 + (rnd() - .5) * 90, my = (a.y + b.y) / 2 + (rnd() - .5) * 90;
+      svg.append(svgEl('path', { class: 'syn-line', d: `M${a.x.toFixed(0)},${a.y.toFixed(0)} Q${mx.toFixed(0)},${my.toFixed(0)} ${b.x.toFixed(0)},${b.y.toFixed(0)}` }));
+    });
+    svg.append(svgEl('circle', { class: 'syn-dot', cx: a.x.toFixed(0), cy: a.y.toFixed(0), r: (1.6 + rnd() * 2.2).toFixed(1), style: `--sd:${(rnd() * 5).toFixed(2)}s` }));
+  });
+  return svg;
+}
+
+export function renderMap(host, { state, filters, selectedId, pathId, onSelect, mode = 'mapa', anim = false }) {
   const focusId = host.contains(document.activeElement) ? document.activeElement.dataset?.stage : null;
   clear(host);
   const path = state.paths.find((p) => p.id === pathId) || null;
@@ -50,7 +66,14 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect, 
     const m = svgEl('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: 'auto-start-reverse' });
     m.append(svgEl('path', { d: 'M0,0 L10,5 L0,10 z', class: cls })); defs.append(m);
   }
+  const slugs = [...new Set(state.stages.map((x) => x.sector))];
+  if (anim) for (const sec of slugs) {   // seta na cor do setor de origem
+    const m = svgEl('marker', { id: `arrow-s-${sectorSlug(sec)}`, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: 'auto-start-reverse' });
+    m.append(svgEl('path', { d: 'M0,0 L10,5 L0,10 z', class: `a-sec ${sectorClass(sec)}` })); defs.append(m);
+  }
   svg.append(defs);
+  const dep = depths(state), cas = anim && selectedId ? downstream(state, selectedId) : null;
+  const pulses = [];
   for (const e of state.edges) {
     const a = byId(state.stages, e.from), b = byId(state.stages, e.to);
     if (!a || !b) continue;
@@ -58,8 +81,16 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect, 
     const hl = Boolean(route?.edges.has(`${a.id}>${b.id}`));
     const handoff = isHandoff(state, e);
     const dim = (path && !hl) || (!path && false);
-    const p = svgEl('path', { d: edgePath(g), class: `edge${hl ? ' hl' : ''}${edgeWaiting(state, e) ? ' wait' : ''}${dim ? ' dim' : ''}${a.kind === 'branch' || b.kind === 'branch' ? ' branch' : ''}`, 'marker-end': `url(#${hl ? 'arrow-hl' : 'arrow'})` });
+    const p = svgEl('path', { d: edgePath(g), class: `edge ${sectorClass(a.sector)}${hl ? ' hl' : ''}${edgeWaiting(state, e) ? ' wait' : ''}${dim ? ' dim' : ''}${a.kind === 'branch' || b.kind === 'branch' ? ' branch' : ''}`, 'marker-end': `url(#${hl ? 'arrow-hl' : anim ? `arrow-s-${sectorSlug(a.sector)}` : 'arrow'})`, 'data-from': a.id, 'data-to': b.id });
     svg.append(p);
+    if (anim && !dim) {      // sinal que sai do neurônio de origem quando ele dispara (e, com um caminho escolhido, também em cascata)
+      const begin = (dep[a.id] * .55 + .2).toFixed(2), dur = 7;
+      const add = (cls, bg, d2, rep) => { const c = svgEl('circle', { class: `pulse ${cls} ${sectorClass(a.sector)}`, r: hl ? 7 : 5.5, opacity: 0 });
+        c.append(svgEl('animateMotion', { path: p.getAttribute('d'), dur: `${d2}s`, begin: `${bg}s`, repeatCount: rep, keyPoints: d2 > 2 ? '0;1;1' : '0;1', keyTimes: d2 > 2 ? '0;.13;1' : '0;1', calcMode: 'linear' }));
+        c.append(svgEl('animate', { attributeName: 'opacity', values: d2 > 2 ? '0;1;1;0;0' : '0;1;1;0', keyTimes: d2 > 2 ? '0;.01;.12;.15;1' : '0;.1;.85;1', dur: `${d2}s`, begin: `${bg}s`, repeatCount: rep })); pulses.push(c); };
+      add('', begin, dur, 'indefinite');
+      if (cas && a.id in cas) add('strong', (cas[a.id] * .38 + .1).toFixed(2), 1.1, '2');
+    }
     if (handoff) {
       const mx = (g.s[0] + g.t[0]) / 2, my = (g.s[1] + g.t[1]) / 2;
       const c = svgEl('circle', { cx: mx, cy: my, r: 6, class: `handoff${dim ? ' dim' : ''}` });
@@ -68,8 +99,10 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect, 
     }
   }
 
-  const canvas = el('div', { class: 'canvas', 'data-mode': mode, style: `width:${maxX}px;height:${maxY}px` },
-    L.decor.map((b) => el('div', { class: b.cls, 'aria-hidden': 'true', style: `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px` }, el('span', { class: `${b.cls}-label`, text: b.label }))), svg);
+  pulses.forEach((c) => svg.append(c));   // pulsos por cima das ligações
+  const canvas = el('div', { class: `canvas${anim ? ' brain' : ''}`, 'data-mode': mode, style: `width:${maxX}px;height:${maxY}px` },
+    anim ? synapses(maxX, maxY) : null,
+    L.decor.map((b) => el('div', { class: b.cls + (b.sector ? ` ${sectorClass(b.sector)}` : ''), 'aria-hidden': 'true', style: `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px` }, el('span', { class: `${b.cls}-label`, text: b.label }))), svg);
   for (const s of state.stages) {
     const iss = stageIssues(state, s);
     const waiting = stageWaiting(state, s.id);
@@ -77,8 +110,8 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect, 
     const inPath = !path || pathIds.has(s.id) || route.via.has(s.id);
     const node = el('button', {
       type: 'button', 'data-stage': s.id, 'data-testid': `node-${s.id}`,
-      class: `node ${s.kind}${N.compact ? ' compact' : ''}${s.id === selectedId ? ' selected' : ''}${match && inPath ? '' : ' dim'}${path && pathIds.has(s.id) ? ' in-path' : ''}${iss.noOwner ? ' no-owner' : ''}${iss.blocked ? ' blocked' : ''}${waiting.length ? ' waiting' : ''}${route?.via.has(s.id) ? ' via' : ''}`,
-      style: `left:${P(s).x}px;top:${P(s).y}px;width:${N.w}px;height:${N.h}px`,
+      class: `node ${s.kind} ${sectorClass(s.sector)}${cas && s.id in cas ? ' cascade' : ''}${N.compact ? ' compact' : ''}${s.id === selectedId ? ' selected' : ''}${match && inPath ? '' : ' dim'}${path && pathIds.has(s.id) ? ' in-path' : ''}${iss.noOwner ? ' no-owner' : ''}${iss.blocked ? ' blocked' : ''}${waiting.length ? ' waiting' : ''}${route?.via.has(s.id) ? ' via' : ''}`,
+      style: `left:${P(s).x}px;top:${P(s).y}px;width:${N.w}px;height:${N.h}px;--nd:${dep[s.id]};--cd:${cas?.[s.id] ?? 0}`,
       'aria-label': `${s.num ? `Etapa ${s.num}: ` : 'Ramal: '}${s.name}`,
       onClick: (ev) => { ev.stopPropagation(); onSelect(s.id); },
     },
@@ -98,6 +131,9 @@ export function renderMap(host, { state, filters, selectedId, pathId, onSelect, 
     canvas.append(node);
   }
   host.append(canvas);
+  // passar o mouse/foco em um cartão acende só as ligações dele (sinapses ativas)
+  const light = (id, on) => { canvas.classList.toggle('focusing', on); canvas.querySelectorAll('.edge').forEach((e) => e.classList.toggle('on', on && (e.dataset.from === id || e.dataset.to === id))); };
+  canvas.querySelectorAll('.node').forEach((n) => { const id = n.dataset.stage; n.addEventListener('pointerenter', () => light(id, true)); n.addEventListener('pointerleave', () => light(id, false)); n.addEventListener('focus', () => light(id, true)); n.addEventListener('blur', () => light(id, false)); });
 
   const apply = () => { canvas.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`; };
   const ensureVisible = (st) => {

@@ -65,10 +65,11 @@
           <div class="tools">
             <button type="button" id="add-stage" class="btn small" data-testid="add-stage">+ Etapa</button>
             <button type="button" id="layout-toggle" class="btn small"></button>
-            <span id="map-tools" class="zoom" role="group" aria-label="Zoom do mapa"><button type="button" id="zoom-out" class="btn small" aria-label="Diminuir zoom">−</button><button type="button" id="zoom-fit" class="btn small">Ajustar</button><button type="button" id="zoom-in" class="btn small" aria-label="Aumentar zoom">+</button></span>
+            <span id="map-tools" class="zoom" role="group" aria-label="Zoom e animação do mapa"><button type="button" id="anim-toggle" class="btn small toggle-anim" aria-pressed="true" data-testid="anim-toggle">🧠 Animação</button><button type="button" id="zoom-out" class="btn small" aria-label="Diminuir zoom">−</button><button type="button" id="zoom-fit" class="btn small">Ajustar</button><button type="button" id="zoom-in" class="btn small" aria-label="Aumentar zoom">+</button></span>
           </div>
         </div>
         <div id="modes" class="modes" role="group" aria-label="Forma do mapa"></div>
+        <div id="sector-legend" class="sector-legend" role="group" aria-label="Setores (clique para filtrar)"></div>
         <div id="paths" class="paths"></div>
         <ul class="legend" aria-label="Legenda do mapa">
           <li><i class="lg lg-stage"></i> Etapa</li>

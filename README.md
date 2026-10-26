@@ -39,8 +39,15 @@ Seletor **"Forma do mapa"** acima do mapa (a escolha fica salva neste navegador,
 - **Circular**: etapas em círculo na ordem do fluxo, com o retorno 11→5 como corda.
 - **Linha do tempo**: lista vertical em ordem de fluxo; cada etapa mostra para onde segue, com ⇄ nas transferências entre setores e ↺ no retorno (os chips levam à etapa seguinte).
 - **Quadro por setor**: uma coluna por setor com resumo (etapas, tarefas abertas, atrasadas, sem responsável).
+- **Matriz setor × etapa**: linhas = setores, colunas = etapas na ordem do fluxo. Cada célula diz o papel do setor naquela etapa: **● executa**, **→ entrega** trabalho para o setor ou **← recebe** dele (o retorno 11→5 aparece marcado ↺). Rola dentro do quadro com a coluna de setores e o cabeçalho fixos; o resumo de cada setor fica na última coluna.
 - **Lista**: a lista simples de antes (abre por padrão em telas até 1100 px, se não houver escolha salva).
 O botão "Ver como lista/mapa" continua alternando com a última forma usada. As formas de mapa têm zoom, arrastar, "Ajustar" e navegação por setas; com o painel aberto, a etapa selecionada é centralizada em zoom legível.
+
+## Cores por setor
+Cada setor tem uma cor própria (variantes para claro e escuro, tokens `.sec-*` em `src/styles.css`): barra lateral e número do cartão, selos, raias, colunas do quadro, linha do tempo, matriz e setas. A legenda **Setores** acima do mapa é também um filtro (clique para filtrar/desfiltrar). A cor nunca é o único sinal: setor aparece escrito e os estados (A definir, bloqueada, aguardando) mantêm ícone e texto. Setores criados por você recebem uma cor extra estável.
+
+## Animação "cérebro"
+Nas formas de mapa (serpentina, raias, árvore, circular) o fluxo ganha vida: uma malha neural discreta ao fundo, **sinais** que viajam pelas ligações na cor do setor de origem, **neurônios** (cartões) que disparam em onda seguindo as camadas do fluxo (etapas com tarefa bloqueada pulsam mais rápido, em vermelho; as aguardando, em âmbar), **cascata** a jusante ao selecionar uma etapa e **sinapses** acesas ao passar o mouse. O botão **🧠 Animação** liga/desliga (a escolha fica salva, chave `itasul-animacao`). Quem usa "reduzir movimento" no sistema começa com a animação desligada e pode ligá-la. É só visual: não altera nenhum dado.
 
 ## Mapa: leitura, zoom e teclado
 - Cartões 288×184 com texto grande; em 1280–1920 px o mapa inteiro cabe na tela com nome ≥ 14 px, rodapé ≥ 11 px e selos ≥ 10,5 px renderizados. Até 1100 px o painel abre em **lista** (o mapa continua disponível pelo botão).
@@ -67,10 +74,12 @@ src/
   state/store.js     estado, persistência, CRUD, histórico, import/export
   state/layouts.js   formas do mapa (raias, árvore, circular): posições calculadas, sem tocar nos dados
   state/logic.js     funções puras: atrasos, filtros, indicadores, transferências
+  ui/sectors.js      cor/classe por setor
   ui/                dom.js (helpers) · form.js (modal) · map.js · views.js (linha do tempo, quadro, lista) · panel.js · team.js · improvements.js · records.js
 tests/unit/          estado, lógica, migração e geometria do layout (node:test)
 tests/e2e/smoke.mjs  teste de interface em navegador real (fluxo geral)
 tests/e2e/gestao.mjs teste de interface: funcionários, tarefas, rotina, dependências, indicadores
+tests/e2e/cerebro.mjs  cores por setor, animação (movimento real dos sinais, cascata, desligar, reduzir movimento) e matriz setor × etapa
 tests/e2e/formas.mjs  formas do mapa: 7 visões, seleção, filtros, caminhos, teclado, zoom/arrasto, persistência, contraste AA nos 2 temas, responsivo
 tests/e2e/refino.mjs  refinamento: legibilidade do mapa (px renderizados), cabeçalho/indicadores, arrasto/zoom/seleção, teclado, tema em todas as superfícies
   tests/e2e/helpers/contraste.mjs  verificador de contraste WCAG AA usado pelos roteiros

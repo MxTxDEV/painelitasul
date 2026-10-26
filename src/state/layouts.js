@@ -4,7 +4,7 @@ import { NODE_W, NODE_H, SECTORS } from '../data/seed.js';
 
 export const MODES = [
   ['mapa', 'Serpentina', 'canvas'], ['raias', 'Raias por setor', 'canvas'], ['arvore', 'Árvore', 'canvas'], ['circulo', 'Circular', 'canvas'],
-  ['timeline', 'Linha do tempo', 'html'], ['setores', 'Quadro por setor', 'html'], ['lista', 'Lista', 'html'],
+  ['timeline', 'Linha do tempo', 'html'], ['setores', 'Quadro por setor', 'html'], ['matriz', 'Matriz setor × etapa', 'html'], ['lista', 'Lista', 'html'],
 ];
 export const isCanvas = (m) => MODES.find((x) => x[0] === m)?.[2] === 'canvas';
 export const isMode = (m) => MODES.some((x) => x[0] === m);
@@ -43,7 +43,7 @@ function raias(state) {
   for (const s of state.stages) { const k = `${s.sector}|${d[s.id]}`; stack[s.id] = cell[k] = (cell[k] ?? -1) + 1; }
   const laneRows = Object.fromEntries(lanes.map((l) => [l, Math.max(1, ...state.stages.filter((s) => s.sector === l).map((s) => stack[s.id] + 1))]));
   let y = 0; const top = {}, decor = [];
-  for (const l of lanes) { top[l] = y; const h = laneRows[l] * node.h + (laneRows[l] - 1) * gapY + 2 * pad; decor.push({ cls: 'lane', label: l, x: 0, y, w: 0, h }); y += h + 12; }
+  for (const l of lanes) { top[l] = y; const h = laneRows[l] * node.h + (laneRows[l] - 1) * gapY + 2 * pad; decor.push({ cls: 'lane', label: l, sector: l, x: 0, y, w: 0, h }); y += h + 12; }
   const pos = {};
   for (const s of state.stages) pos[s.id] = { x: gutter + d[s.id] * (node.w + gapX), y: top[s.sector] + pad + stack[s.id] * (node.h + gapY) };
   const width = Math.max(...Object.values(pos).map((p) => p.x)) + node.w + MARGIN / 2;
@@ -95,4 +95,23 @@ export function computeLayout(state, mode) {
 export function flowOrder(state) {
   const d = depths(state);
   return state.stages.map((s, i) => ({ s, i })).sort((a, b) => d[a.s.id] - d[b.s.id] || a.i - b.i).map((o) => o.s);
+}
+
+// Matriz setor × etapa. Linhas = setores, colunas = etapas (ordem do fluxo). Em cada célula, o papel do setor naquela etapa:
+//   executa = a etapa é do setor · entrega = a etapa entrega trabalho para o setor · recebe = a etapa recebe trabalho do setor.
+export function sectorMatrix(state) {
+  const cols = flowOrder(state);
+  const rows = [...SECTORS.filter((s) => state.stages.some((x) => x.sector === s)), ...new Set(state.stages.map((s) => s.sector).filter((s) => !SECTORS.includes(s)))];
+  const byId = Object.fromEntries(state.stages.map((s) => [s.id, s]));
+  const cells = {};
+  for (const sector of rows) for (const st of cols) {
+    const out = state.edges.filter((e) => e.from === st.id && byId[e.to]?.sector === sector && sector !== st.sector).map((e) => ({ id: e.to, loop: Boolean(e.loop) }));
+    const inn = state.edges.filter((e) => e.to === st.id && byId[e.from]?.sector === sector && sector !== st.sector).map((e) => ({ id: e.from, loop: Boolean(e.loop) }));
+    const roles = [];
+    if (st.sector === sector) roles.push('executa');
+    if (out.length) roles.push('entrega');
+    if (inn.length) roles.push('recebe');
+    cells[`${sector}|${st.id}`] = { sector, stageId: st.id, roles, deliversTo: out, receivesFrom: inn };
+  }
+  return { rows, cols, cells };
 }

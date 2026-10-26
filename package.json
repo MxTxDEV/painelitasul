@@ -6,7 +6,7 @@
   "description": "Painel Visual de Gestão — ITASUL OS (app estático, sem dependências)",
   "scripts": {
     "start": "node tools/serve.mjs",
-    "test": "node --test tests/unit/store.test.js tests/unit/evolution.test.js tests/unit/gestao.test.js tests/unit/auditoria.test.js tests/unit/theme.test.js tests/unit/fluxos.test.js tests/unit/layouts.test.js",
-    "test:e2e": "node tests/e2e/smoke.mjs && node tests/e2e/gestao.mjs && node tests/e2e/auditoria.mjs && node tests/e2e/refino.mjs && node tests/e2e/formas.mjs"
+    "test": "node --test tests/unit/store.test.js tests/unit/evolution.test.js tests/unit/gestao.test.js tests/unit/auditoria.test.js tests/unit/theme.test.js tests/unit/fluxos.test.js tests/unit/layouts.test.js tests/unit/matriz.test.js",
+    "test:e2e": "node tests/e2e/smoke.mjs && node tests/e2e/gestao.mjs && node tests/e2e/auditoria.mjs && node tests/e2e/refino.mjs && node tests/e2e/formas.mjs && node tests/e2e/cerebro.mjs"
   }
 }

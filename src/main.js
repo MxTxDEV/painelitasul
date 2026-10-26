@@ -4,7 +4,8 @@ import { SECTORS, STATUSES, PRIORITIES, METRIC_DEFS } from './data/seed.js';
 import { el, append, clear, toast, confirmDialog, fmtDate } from './ui/dom.js';
 import { openForm, options } from './ui/form.js';
 import { renderMap, mapControls } from './ui/map.js';
-import { renderList, renderTimeline, renderBoard } from './ui/views.js';
+import { renderList, renderTimeline, renderBoard, renderMatrix } from './ui/views.js';
+import { sectorClass } from './ui/sectors.js';
 import { MODES, isCanvas, isMode } from './state/layouts.js';
 import { renderPanel, stageForm } from './ui/panel.js';
 import { taskForm } from './ui/tasks.js';
@@ -21,8 +22,11 @@ if (!storage) setTimeout(() => toast('Armazenamento do navegador indisponível: 
 
 const MODE_KEY = 'itasul-forma';
 const savedMode = () => { try { const v = window.localStorage.getItem(MODE_KEY); return isMode(v) ? v : null; } catch { return null; } };
+const ANIM_KEY = 'itasul-animacao';
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const savedAnim = () => { try { const v = window.localStorage.getItem(ANIM_KEY); return v === 'on' ? true : v === 'off' ? false : null; } catch { return null; } };
 const isNarrow = window.matchMedia('(max-width: 760px)').matches;
-const ui = { kpiOpen: { oper: !isNarrow, gestao: !isNarrow }, view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, mode: savedMode() || (window.matchMedia('(max-width: 1100px)').matches ? 'lista' : 'mapa'), prevMode: 'mapa' };
+const ui = { kpiOpen: { oper: !isNarrow, gestao: !isNarrow }, view: 'mapa', filters: { ...EMPTY_FILTERS }, selected: null, tab: 'resumo', pathId: '', impFilter: '', recFilter: '', routine: { person: '', day: todayISO(), groups: [] }, mode: savedMode() || (window.matchMedia('(max-width: 1100px)').matches ? 'lista' : 'mapa'), prevMode: 'mapa', anim: savedAnim() ?? !reducedMotion };
 const $ = (id) => document.getElementById(id);
 
 // Tom do indicador: nunca só cor — sempre acompanhado de ícone e rótulo ("Atenção", "Crítico", "Em dia", "Sem dados").
@@ -106,6 +110,12 @@ function renderPaths() {
 }
 
 function setMode(m) { ui.mode = m; try { window.localStorage.setItem(MODE_KEY, m); } catch { /* sem armazenamento: vale só nesta sessão */ } render(); }
+function renderSectorLegend() {
+  const s = store.get(), present = new Set(s.stages.map((x) => x.sector)), secs = [...SECTORS.filter((x) => present.has(x)), ...[...present].filter((x) => !SECTORS.includes(x))];
+  append(clear($('sector-legend')), el('span', { class: 'lbl', text: 'Setores:' }), secs.map((sec) =>
+    el('button', { type: 'button', class: `sec-chip ${sectorClass(sec)}`, 'data-sector': sec, 'aria-pressed': String(ui.filters.sector === sec), title: ui.filters.sector === sec ? 'Clique para remover o filtro' : `Filtrar pelo setor ${sec}`,
+      text: sec, onClick: () => { ui.filters.sector = ui.filters.sector === sec ? '' : sec; render(); } })));
+}
 function renderModes() {
   append(clear($('modes')), el('span', { class: 'lbl', text: 'Forma do mapa:' }), MODES.map(([id, label]) =>
     el('button', { type: 'button', class: `seg${ui.mode === id ? ' active' : ''}`, 'data-mode': id, 'aria-pressed': String(ui.mode === id), text: label, onClick: () => setMode(id) })));
@@ -127,7 +137,8 @@ function renderPanelNow() {
 }
 
 function render() {
-  const focusStage = document.activeElement?.closest?.('#stage-list') ? document.activeElement.dataset.stage : null;
+  const act = document.activeElement?.closest?.('#stage-list') ? document.activeElement : null;
+  const focusSel = act ? (act.dataset.cell ? `[data-cell="${act.dataset.cell}"]` : act.dataset.stage ? `[data-stage="${act.dataset.stage}"]` : null) : null;
   $('boot')?.remove();
   if (ui.selected && !byId(store.get().stages, ui.selected)) ui.selected = null;
   document.querySelectorAll('[data-view]').forEach((b) => { const on = b.dataset.view === ui.view; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); });
@@ -136,16 +147,17 @@ function render() {
   if (ui.view === 'mapa') {
     renderFilters(); renderPaths();
     const asMap = isCanvas(ui.mode);
-    renderModes();
+    renderModes(); renderSectorLegend();
+    const at = $('anim-toggle'); at.setAttribute('aria-pressed', String(ui.anim)); at.textContent = ui.anim ? '🧠 Animação: ligada' : '🧠 Animação: desligada';
     $('map').hidden = !asMap; $('stage-list').hidden = asMap; $('map-tools').hidden = !asMap;
     $('layout-toggle').textContent = ui.mode === 'lista' ? 'Ver como mapa' : 'Ver como lista';
     const opts = { state: store.get(), filters: ui.filters, selectedId: ui.selected, pathId: ui.pathId, onSelect: (id) => open(id) };
-    if (asMap) { clear($('stage-list')); renderMap($('map'), { ...opts, mode: ui.mode }); }
+    if (asMap) { clear($('stage-list')); renderMap($('map'), { ...opts, mode: ui.mode, anim: ui.anim }); }
     else {
       clear($('map'));
       const host = $('stage-list'); host.className = `stage-list mode-${ui.mode}`;
-      ({ timeline: renderTimeline, setores: renderBoard }[ui.mode] || renderList)(host, opts);
-      if (focusStage) host.querySelector(`[data-stage="${focusStage}"]`)?.focus({ preventScroll: true });
+      ({ timeline: renderTimeline, setores: renderBoard, matriz: renderMatrix }[ui.mode] || renderList)(host, opts);
+      if (focusSel) host.querySelector(focusSel)?.focus({ preventScroll: true });
     }
     renderPanelNow();
     const panelOpen = Boolean(ui.selected);
@@ -164,6 +176,7 @@ function render() {
 // --- eventos estáticos ---
 document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { ui.view = b.dataset.view; render(); }));
 const mc = mapControls($('map'));
+$('anim-toggle').onclick = () => { ui.anim = !ui.anim; try { window.localStorage.setItem(ANIM_KEY, ui.anim ? 'on' : 'off'); } catch { /* vale só nesta sessão */ } render(); };
 $('zoom-in').onclick = mc.zoomIn; $('zoom-out').onclick = mc.zoomOut; $('zoom-fit').onclick = mc.fit;
 $('layout-toggle').onclick = () => { if (ui.mode === 'lista') setMode(ui.prevMode || 'mapa'); else { ui.prevMode = ui.mode; setMode('lista'); } };
 $('add-stage').onclick = () => stageForm(store, null);
